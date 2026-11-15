@@ -118,7 +118,6 @@ DASHBOARD_TEMPLATE = """
         .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
-        .btn-warning { background: #f59e0b; color: white; }
         .btn:disabled { background: #334155; color: var(--muted); cursor: not-allowed; }
         .terminal-panel { background: #020617; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; height: 550px; }
         .terminal-header { background: #0f172a; padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
@@ -164,7 +163,6 @@ DASHBOARD_TEMPLATE = """
         <div class="content-grid">
             <div class="panel">
                 <div class="panel-title">⚙️ لوحة التحكم</div>
-                <button class="btn btn-warning" onclick="testApify()" id="testBtn" style="margin-bottom: 20px;">🔍 اختبار الاتصال بـ Apify (اختبر أولاً)</button>
                 <div class="form-group">
                     <label>1. اختر الدولة المستهدفة</label>
                     <select id="country">
@@ -232,24 +230,6 @@ DASHBOARD_TEMPLATE = """
                 document.getElementById('nav-send').classList.add('active');
                 checkValidNumbers();
             }
-        }
-
-        async function testApify() {
-            const btn = document.getElementById('testBtn');
-            btn.disabled = true; btn.innerText = `⏳ جاري الاختبار...`;
-            document.getElementById('logsBox').innerHTML = "";
-            addLog("[*] جاري اختبار الاتصال بـ Apify برقم واحد معروف...", 'log-info');
-            
-            const res = await fetch('/api/test-apify', { method: 'POST' });
-            const data = await res.json();
-            
-            if (data.success) {
-                addLog(`✅ الاتصال يعمل! الرد: ${data.raw_response}`, 'log-success');
-            } else {
-                addLog(`❌ فشل الاتصال: ${data.error}`, 'log-error');
-                addLog(`📋 التفاصيل الكاملة: ${data.raw_response}`, 'log-warn');
-            }
-            btn.disabled = false; btn.innerText = `🔍 اختبار الاتصال بـ Apify (اختبر أولاً)`;
         }
 
         async function generateNumbers() {
@@ -389,13 +369,13 @@ def process_apify(numbers):
     for idx, chunk in enumerate(chunks):
         logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
         
-        url = f"https://api.apify.com/v2/acts/vtrdev~whatsapp-number-validator/run-sync-get-dataset-items?token={APIFY_TOKEN}"
-        payload = {"phone_numbers": chunk}
+        # استخدام الوكيل الجديد
+        url = f"https://api.apify.com/v2/acts/apivault_labs~whatsapp-number-validator/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+        payload = {"phoneNumbers": chunk}
         
         try:
             response = requests.post(url, json=payload, timeout=120)
             
-            # --- إضافة تسجيل الرد الخام للتصحيح ---
             raw_preview = response.text[:500] if response.text else "(empty)"
             logs.append(f"[DEBUG] كود الرد: {response.status_code}")
             
@@ -411,27 +391,18 @@ def process_apify(numbers):
                     logs.append(f"[DEBUG] الرد الخام: {raw_preview}")
                     continue
                 
-                # إذا كان الرد يحتوي على خطأ داخلي
                 if isinstance(data, dict) and "error" in data:
                     logs.append(f"❌ الدفعة {idx+1}: Apify أعاد خطأ: {data.get('error')}")
                     continue
                 
-                # معالجة العناصر
                 processed = 0
                 for item in data:
                     if not isinstance(item, dict): continue
                     
-                    # جرب أسماء الحقول المختلفة
-                    phone = item.get("phone") or item.get("phoneNumber") or item.get("number")
-                    has_wa = item.get("hasWhatsapp")
-                    if has_wa is None:
-                        has_wa = item.get("has_whatsapp")
-                    if has_wa is None:
-                        has_wa = item.get("isRegistered")
-                    if has_wa is None:
-                        has_wa = item.get("registered")
+                    # الوكيل الجديد يستخدم حقل 'input' أو 'e164' للرقم، و 'whatsapp' للنتيجة
+                    phone = item.get("input") or item.get("e164") or item.get("phone")
+                    has_wa = item.get("whatsapp")
                     
-                    # تجاهل summary
                     if "summary" in item and not phone:
                         continue
                     
@@ -511,25 +482,6 @@ def login():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
-
-@app.route('/api/test-apify', methods=['POST'])
-def test_apify():
-    """اختبار سريع برقم معروف للتأكد من أن Apify يعمل"""
-    if not APIFY_TOKEN:
-        return jsonify({"success": False, "error": "Token غير موجود", "raw_response": "N/A"})
-    
-    url = f"https://api.apify.com/v2/acts/vtrdev~whatsapp-number-validator/run-sync-get-dataset-items?token={APIFY_TOKEN}"
-    payload = {"phone_numbers": ["+96550000000"]}
-    
-    try:
-        response = requests.post(url, json=payload, timeout=60)
-        return jsonify({
-            "success": response.status_code in [200, 201],
-            "error": None if response.status_code in [200, 201] else f"HTTP {response.status_code}",
-            "raw_response": response.text[:500]
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e), "raw_response": "N/A"})
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
