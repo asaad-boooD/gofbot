@@ -5,6 +5,7 @@ import threading
 import requests
 import io
 import time
+import json
 from flask import Flask, request, render_template_string, session, redirect, url_for, Response, jsonify
 
 app = Flask(__name__)
@@ -49,14 +50,14 @@ LOGIN_TEMPLATE = """
         body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; background-image: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(244, 63, 94, 0.15), transparent 25%); }
         .login-box { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 50px 40px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); width: 100%; max-width: 420px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
         .logo-icon { font-size: 40px; margin-bottom: 15px; display: inline-block; }
-        h2 { color: var(--text); margin-bottom: 10px; font-weight: 700; font-size: 28px; letter-spacing: -0.5px; }
+        h2 { color: var(--text); margin-bottom: 10px; font-weight: 700; font-size: 28px; }
         p.subtitle { color: #94a3b8; margin-bottom: 35px; font-size: 15px; }
         .input-group { margin-bottom: 20px; text-align: right; }
         label { display: block; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
         input { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; color: white; outline: none; transition: all 0.3s; font-family: 'Tajawal'; font-size: 15px; }
-        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+        input:focus { border-color: var(--primary); }
         button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 10px; font-family: 'Tajawal'; }
-        button:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 20px -10px var(--primary); }
+        button:hover { background: var(--primary-hover); }
         .error { color: var(--danger); background: rgba(244, 63, 94, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; border: 1px solid rgba(244, 63, 94, 0.2); }
     </style>
 </head>
@@ -67,14 +68,8 @@ LOGIN_TEMPLATE = """
         <p class="subtitle">منصة الخدمات الذكية المتكاملة</p>
         {% if error %}<div class="error">{{ error }}</div>{% endif %}
         <form method="POST">
-            <div class="input-group">
-                <label>اسم المستخدم</label>
-                <input type="text" name="username" placeholder="أدخل اسم المستخدم" required autocomplete="off">
-            </div>
-            <div class="input-group">
-                <label>كلمة المرور</label>
-                <input type="password" name="password" placeholder="أدخل كلمة المرور" required>
-            </div>
+            <div class="input-group"><label>اسم المستخدم</label><input type="text" name="username" placeholder="As3ad" required autocomplete="off"></div>
+            <div class="input-group"><label>كلمة المرور</label><input type="password" name="password" placeholder="••••••" required></div>
             <button type="submit">تسجيل الدخول</button>
         </form>
     </div>
@@ -94,21 +89,17 @@ DASHBOARD_TEMPLATE = """
         :root { --bg: #0b1120; --surface: #1e293b; --primary: #6366f1; --success: #10b981; --danger: #f43f5e; --text: #f8fafc; --muted: #94a3b8; --border: #334155; --sidebar: #0f172a; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
         body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
         .sidebar { width: 260px; background: var(--sidebar); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        .brand { padding: 25px 20px; font-size: 22px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+        .brand { padding: 25px 20px; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
         .brand-icon { color: var(--primary); font-size: 26px; }
         .nav-menu { padding: 20px 10px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
         .nav-item { padding: 15px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-weight: 600; color: var(--muted); transition: 0.3s; }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
         .nav-item.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); border-right: 4px solid var(--primary); }
-        .logout-btn { padding: 20px; border-top: 1px solid var(--border); color: var(--danger); text-decoration: none; font-weight: 700; display: flex; justify-content: center; transition: 0.3s; }
-        .logout-btn:hover { background: rgba(244, 63, 94, 0.1); }
-
+        .logout-btn { padding: 20px; border-top: 1px solid var(--border); color: var(--danger); text-decoration: none; font-weight: 700; display: flex; justify-content: center; }
         .main-content { flex: 1; overflow-y: auto; padding: 30px; display: none; }
         .main-content.active { display: block; }
-
-        .header-title { font-size: 24px; font-weight: 800; margin-bottom: 25px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+        .header-title { font-size: 24px; font-weight: 800; margin-bottom: 25px; }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; }
         .stat-icon { width: 60px; height: 60px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 24px; }
@@ -116,8 +107,7 @@ DASHBOARD_TEMPLATE = """
         .stat-icon.valid { background: rgba(16, 185, 129, 0.1); color: var(--success); }
         .stat-icon.invalid { background: rgba(244, 63, 94, 0.1); color: var(--danger); }
         .stat-info h4 { color: var(--muted); font-size: 14px; margin-bottom: 5px; }
-        .stat-info span { font-size: 28px; font-weight: 800; color: var(--text); }
-
+        .stat-info span { font-size: 28px; font-weight: 800; }
         .content-grid { display: grid; grid-template-columns: 400px 1fr; gap: 30px; }
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 30px; }
         .panel-title { font-size: 18px; font-weight: 700; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
@@ -125,31 +115,28 @@ DASHBOARD_TEMPLATE = """
         label { display: block; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
         select, input, textarea { width: 100%; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: white; outline: none; font-family: 'Tajawal'; font-size: 15px; }
         textarea { resize: vertical; min-height: 120px; }
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; transition: 0.3s; }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: #4f46e5; }
         .btn-success { background: var(--success); color: white; }
-        .btn-success:hover { background: #059669; }
+        .btn-warning { background: #f59e0b; color: white; }
         .btn:disabled { background: #334155; color: var(--muted); cursor: not-allowed; }
-
         .terminal-panel { background: #020617; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; height: 550px; }
         .terminal-header { background: #0f172a; padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
         .dot { width: 12px; height: 12px; border-radius: 50%; }
         .dot.red { background: #ef4444; } .dot.yellow { background: #f59e0b; } .dot.green { background: #10b981; }
         .terminal-title { margin-right: auto; font-size: 13px; color: var(--muted); font-family: monospace; }
-        .terminal-body { padding: 20px; flex: 1; overflow-y: auto; font-family: monospace; font-size: 14px; line-height: 1.6; direction: ltr; text-align: left; }
-        .log-line { margin-bottom: 6px; padding: 4px 8px; border-radius: 4px; }
+        .terminal-body { padding: 20px; flex: 1; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; direction: ltr; text-align: left; }
+        .log-line { margin-bottom: 6px; padding: 4px 8px; border-radius: 4px; word-wrap: break-word; }
         .log-info { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
         .log-success { color: var(--success); background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--success); }
         .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.1); border-left: 3px solid var(--danger); }
-
+        .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; }
         .progress-container { width: 100%; background: var(--bg); border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 20px; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
-
         @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; border-left: none; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center; padding: 0 10px; height: 60px; }
+            .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0 10px; height: 60px; border-left: none; border-bottom: 1px solid var(--border); }
             .brand { padding: 10px; font-size: 18px; border-bottom: none; }
             .nav-menu { flex-direction: row; padding: 0; gap: 5px; }
             .nav-item { padding: 10px; font-size: 14px; }
@@ -167,7 +154,6 @@ DASHBOARD_TEMPLATE = """
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
     </div>
 
-    <!-- WhatsApp Section -->
     <div class="main-content active" id="wa-section">
         <div class="header-title">منصة فحص أرقام الواتساب</div>
         <div class="stats-grid">
@@ -178,6 +164,7 @@ DASHBOARD_TEMPLATE = """
         <div class="content-grid">
             <div class="panel">
                 <div class="panel-title">⚙️ لوحة التحكم</div>
+                <button class="btn btn-warning" onclick="testApify()" id="testBtn" style="margin-bottom: 20px;">🔍 اختبار الاتصال بـ Apify (اختبر أولاً)</button>
                 <div class="form-group">
                     <label>1. اختر الدولة المستهدفة</label>
                     <select id="country">
@@ -201,13 +188,12 @@ DASHBOARD_TEMPLATE = """
                 <div class="terminal-body" id="logsBox"><div class="log-line log-info">> System initialized. Ready for commands...</div></div>
             </div>
         </div>
-        <div class="download-bar" style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
             <div><h3 style="font-size: 16px; margin-bottom: 5px;">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">قم بتحميل ملف يحتوي على الأرقام الصالحة فقط.</p></div>
-            <button onclick="downloadResults()" class="download-btn" style="padding: 12px 25px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 8px; color: white; text-decoration: none; font-weight: 700; display: flex; align-items: center; gap: 10px; transition: 0.3s; border: none; cursor: pointer; font-family: 'Tajawal'; font-size: 15px;">⬇️ تحميل الأرقام الناجحة (.txt)</button>
+            <button onclick="downloadResults()" style="padding: 12px 25px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 8px; color: white; border: none; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 15px;">⬇️ تحميل الأرقام الناجحة (.txt)</button>
         </div>
     </div>
 
-    <!-- Bulk Sender Section -->
     <div class="main-content" id="send-section">
         <div class="header-title">مرسل الرسائل الجماعية</div>
         <div class="content-grid">
@@ -219,7 +205,6 @@ DASHBOARD_TEMPLATE = """
                     <textarea id="messageText" placeholder="اكتب رسالتك هنا..."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="startSending()" id="sendBtn">🚀 بدء الإرسال</button>
-                
                 <div class="progress-container">
                     <div class="progress-bar" id="sendProgress" style="background: var(--success);"></div>
                 </div>
@@ -239,18 +224,34 @@ DASHBOARD_TEMPLATE = """
         function switchTab(tab) {
             document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
             if(tab === 'wa') {
                 document.getElementById('wa-section').classList.add('active');
                 document.getElementById('nav-wa').classList.add('active');
-            } else if(tab === 'send') {
+            } else {
                 document.getElementById('send-section').classList.add('active');
                 document.getElementById('nav-send').classList.add('active');
                 checkValidNumbers();
             }
         }
 
-        // --- منطق الواتساب ---
+        async function testApify() {
+            const btn = document.getElementById('testBtn');
+            btn.disabled = true; btn.innerText = `⏳ جاري الاختبار...`;
+            document.getElementById('logsBox').innerHTML = "";
+            addLog("[*] جاري اختبار الاتصال بـ Apify برقم واحد معروف...", 'log-info');
+            
+            const res = await fetch('/api/test-apify', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.success) {
+                addLog(`✅ الاتصال يعمل! الرد: ${data.raw_response}`, 'log-success');
+            } else {
+                addLog(`❌ فشل الاتصال: ${data.error}`, 'log-error');
+                addLog(`📋 التفاصيل الكاملة: ${data.raw_response}`, 'log-warn');
+            }
+            btn.disabled = false; btn.innerText = `🔍 اختبار الاتصال بـ Apify (اختبر أولاً)`;
+        }
+
         async function generateNumbers() {
             const country = document.getElementById('country').value;
             const count = document.getElementById('count').value;
@@ -289,6 +290,7 @@ DASHBOARD_TEMPLATE = """
                     let cls = 'log-info';
                     if (log.includes('✅')) cls = 'log-success';
                     if (log.includes('❌')) cls = 'log-error';
+                    if (log.includes('⚠️')) cls = 'log-warn';
                     addLog(log, cls, false);
                 });
                 box.scrollTop = box.scrollHeight;
@@ -309,7 +311,6 @@ DASHBOARD_TEMPLATE = """
         }
         function downloadResults() { window.location.href = '/api/download'; }
 
-        // --- منطق مرسل الرسائل ---
         async function checkValidNumbers() {
             const res = await fetch('/api/valid-count');
             const data = await res.json();
@@ -319,24 +320,20 @@ DASHBOARD_TEMPLATE = """
         async function startSending() {
             const msg = document.getElementById('messageText').value;
             if (!msg) { alert("يرجى كتابة رسالة أولاً."); return; }
-            
             const btn = document.getElementById('sendBtn');
             btn.disabled = true; btn.innerHTML = `⏳ جاري الإرسال...`;
             document.getElementById('sendLogsBox').innerHTML = "";
-            
             const res = await fetch('/api/send-bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg}) });
             if (res.ok && !sendPolling) { sendPolling = setInterval(pollSendStatus, 2000); }
-            else { alert("حدث خطأ. تأكد من وجود أرقام صالحة."); btn.disabled = false; btn.innerHTML = `🚀 بدء الإرسال`; }
+            else { alert("حدث خطأ."); btn.disabled = false; btn.innerHTML = `🚀 بدء الإرسال`; }
         }
 
         async function pollSendStatus() {
             const res = await fetch('/api/send-status');
             const data = await res.json();
-            
             const percent = data.progress.total > 0 ? (data.progress.current / data.progress.total) * 100 : 0;
             document.getElementById('sendProgress').style.width = percent + '%';
             document.getElementById('sendStats').innerText = `${data.progress.current} / ${data.progress.total} (نجح: ${data.progress.success} | فشل: ${data.progress.failed})`;
-
             if (data.logs.length > 0) {
                 const box = document.getElementById('sendLogsBox'); box.innerHTML = "";
                 data.logs.forEach(log => {
@@ -347,7 +344,6 @@ DASHBOARD_TEMPLATE = """
                 });
                 box.scrollTop = box.scrollHeight;
             }
-
             if (data.status === 'idle') {
                 clearInterval(sendPolling); sendPolling = null;
                 const btn = document.getElementById('sendBtn');
@@ -387,7 +383,6 @@ def process_apify(numbers):
     
     logs.append(f"[*] جاري إرسال {len(numbers)} رقم إلى محرك الفحص...")
     
-    # تقسيم الأرقام إلى دفعات صغيرة لتجنب فشل الطلبات الكبيرة
     chunk_size = 20
     chunks = [numbers[i:i + chunk_size] for i in range(0, len(numbers), chunk_size)]
     
@@ -399,30 +394,69 @@ def process_apify(numbers):
         
         try:
             response = requests.post(url, json=payload, timeout=120)
+            
+            # --- إضافة تسجيل الرد الخام للتصحيح ---
+            raw_preview = response.text[:500] if response.text else "(empty)"
+            logs.append(f"[DEBUG] كود الرد: {response.status_code}")
+            
             if response.status_code in [200, 201]:
-                data = response.json()
-                if not data:
-                    logs.append(f"⚠️ الدفعة {idx+1} رجعت فارغة من السيرفر.")
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    logs.append(f"❌ الدفعة {idx+1}: الرد ليس JSON. الرد الخام: {raw_preview}")
+                    continue
                 
+                if not data:
+                    logs.append(f"⚠️ الدفعة {idx+1} رجعت فارغة.")
+                    logs.append(f"[DEBUG] الرد الخام: {raw_preview}")
+                    continue
+                
+                # إذا كان الرد يحتوي على خطأ داخلي
+                if isinstance(data, dict) and "error" in data:
+                    logs.append(f"❌ الدفعة {idx+1}: Apify أعاد خطأ: {data.get('error')}")
+                    continue
+                
+                # معالجة العناصر
+                processed = 0
                 for item in data:
-                    if "phone" in item and "hasWhatsapp" in item:
-                        phone = item["phone"]; is_valid = item["hasWhatsapp"]
-                        stats["total"] += 1
-                        if is_valid:
-                            logs.append(f"✅ مسجل: {phone}"); valid_numbers.append(phone); stats["valid"] += 1
-                        else:
-                            logs.append(f"❌ غير مسجل: {phone}"); stats["invalid"] += 1
+                    if not isinstance(item, dict): continue
+                    
+                    # جرب أسماء الحقول المختلفة
+                    phone = item.get("phone") or item.get("phoneNumber") or item.get("number")
+                    has_wa = item.get("hasWhatsapp")
+                    if has_wa is None:
+                        has_wa = item.get("has_whatsapp")
+                    if has_wa is None:
+                        has_wa = item.get("isRegistered")
+                    if has_wa is None:
+                        has_wa = item.get("registered")
+                    
+                    # تجاهل summary
+                    if "summary" in item and not phone:
+                        continue
+                    
+                    if phone is None:
+                        continue
+                    
+                    processed += 1
+                    stats["total"] += 1
+                    if has_wa:
+                        logs.append(f"✅ مسجل: {phone}"); valid_numbers.append(phone); stats["valid"] += 1
+                    else:
+                        logs.append(f"❌ غير مسجل: {phone}"); stats["invalid"] += 1
+                
+                if processed == 0:
+                    logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل. الرد الخام: {raw_preview}")
             else:
-                logs.append(f"❌ خطأ في الدفعة {idx+1} (كود: {response.status_code}): {response.text[:100]}")
+                logs.append(f"❌ الدفعة {idx+1} (كود {response.status_code}): {raw_preview}")
+                
         except Exception as e:
-            logs.append(f"❌ خطأ في الاتصال بالدفعة {idx+1}: {str(e)[:100]}")
+            logs.append(f"❌ خطأ في الدفعة {idx+1}: {str(e)[:150]}")
             
         time.sleep(2)
         
-    logs.append("--- اكتملت عملية الفحص بنجاح ---")
+    logs.append(f"--- اكتملت العملية. تم العثور على {stats['valid']} رقم مسجل ---")
     current_status = "idle"
-
-# --- وظائف الإرسال الجماعي ---
 
 def process_bulk_send(message):
     global send_status, send_logs, send_progress
@@ -431,46 +465,30 @@ def process_bulk_send(message):
     send_progress = {"current": 0, "total": len(valid_numbers), "success": 0, "failed": 0}
     
     if not WASERVIX_KEY:
-        send_logs.append("❌ خطأ: لم يتم تعيين WASERVIX_API_KEY في إعدادات Render.")
-        send_status = "idle"
-        return
+        send_logs.append("❌ خطأ: لم يتم تعيين WASERVIX_API_KEY.")
+        send_status = "idle"; return
 
     send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(valid_numbers)} رقم...")
 
     for number in valid_numbers:
         clean_number = number.replace("+", "").strip()
         send_logs.append(f"[*] جاري الإرسال إلى: {number}")
-        
         try:
-            payload = {
-                "apiKey": WASERVIX_KEY,
-                "phone": clean_number,
-                "message": message
-            }
+            payload = {"apiKey": WASERVIX_KEY, "phone": clean_number, "message": message}
             response = requests.post(WASERVIX_URL, json=payload, timeout=15)
-            
             if response.status_code == 200:
-                send_logs.append(f"✅ نجح الإرسال إلى: {number}")
-                send_progress["success"] += 1
+                send_logs.append(f"✅ نجح: {number}"); send_progress["success"] += 1
             else:
-                send_logs.append(f"❌ فشل الإرسال إلى: {number} (كود: {response.status_code})")
-                send_progress["failed"] += 1
-                
+                send_logs.append(f"❌ فشل: {number} (كود: {response.status_code})"); send_progress["failed"] += 1
         except Exception as e:
-            send_logs.append(f"❌ خطأ في الاتصال للرقم {number}: {str(e)[:50]}")
-            send_progress["failed"] += 1
-
+            send_logs.append(f"❌ خطأ: {number} ({str(e)[:50]})"); send_progress["failed"] += 1
         send_progress["current"] += 1
-        
         if send_progress["current"] % 10 == 0:
-            send_logs.append(f"--- تم إرسال {send_progress['current']} من أصل {send_progress['total']} ---")
             if len(send_logs) > 50: send_logs.pop(0)
-
-        delay = random.uniform(4, 9)
-        time.sleep(delay)
+        time.sleep(random.uniform(4, 9))
 
     send_status = "idle"
-    send_logs.append(f"✅ اكتملت عملية الإرسال. (نجح: {send_progress['success']} | فشل: {send_progress['failed']})")
+    send_logs.append(f"✅ اكتمل الإرسال. (نجح: {send_progress['success']} | فشل: {send_progress['failed']})")
 
 # --- مسارات Flask ---
 
@@ -486,14 +504,32 @@ def login():
         if request.form['username'] == 'As3ad' and request.form['password'] == 'As3ad':
             session['logged_in'] = True
             return redirect(url_for('index'))
-        else:
-            error = "بيانات الدخول غير صحيحة."
+        else: error = "بيانات الدخول غير صحيحة."
     return render_template_string(LOGIN_TEMPLATE, error=error)
 
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+@app.route('/api/test-apify', methods=['POST'])
+def test_apify():
+    """اختبار سريع برقم معروف للتأكد من أن Apify يعمل"""
+    if not APIFY_TOKEN:
+        return jsonify({"success": False, "error": "Token غير موجود", "raw_response": "N/A"})
+    
+    url = f"https://api.apify.com/v2/acts/vtrdev~whatsapp-number-validator/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    payload = {"phone_numbers": ["+96550000000"]}
+    
+    try:
+        response = requests.post(url, json=payload, timeout=60)
+        return jsonify({
+            "success": response.status_code in [200, 201],
+            "error": None if response.status_code in [200, 201] else f"HTTP {response.status_code}",
+            "raw_response": response.text[:500]
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "raw_response": "N/A"})
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
@@ -510,16 +546,13 @@ def check_api():
     global current_status, logs, stats, valid_numbers
     data = request.json
     specific = data.get('specific', '').strip()
-    if current_status == "running": return {"error": "العملية قيد التشغيل"}, 400
-    
+    if current_status == "running": return {"error": "قيد التشغيل"}, 400
     logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}; current_status = "running"
     valid_numbers.clear()
-    
     if specific:
-        numbers = [specific]; logs.append(f"[>] جاري فحص رقم محدد: {specific}")
+        numbers = [specific]; logs.append(f"[>] فحص رقم محدد: {specific}")
     else:
-        numbers = generated_numbers; logs.append(f"[>] جاري فحص {len(numbers)} رقم...")
-        
+        numbers = generated_numbers; logs.append(f"[>] فحص {len(numbers)} رقم...")
     threading.Thread(target=process_apify, args=(numbers,)).start()
     return {"status": "started"}
 
@@ -543,14 +576,9 @@ def send_bulk_api():
     global send_status
     data = request.json
     message = data.get('message', '').strip()
-    
-    if not valid_numbers:
-        return {"error": "لا توجد أرقام صالحة للإرسال. قم بالفحص أولاً."}, 400
-    if not message:
-        return {"error": "الرسالة فارغة."}, 400
-    if send_status == "running":
-        return {"error": "عملية إرسال قيد التنفيذ بالفعل."}, 400
-        
+    if not valid_numbers: return {"error": "لا توجد أرقام"}, 400
+    if not message: return {"error": "الرسالة فارغة"}, 400
+    if send_status == "running": return {"error": "قيد التشغيل"}, 400
     threading.Thread(target=process_bulk_send, args=(message,)).start()
     return {"status": "started"}
 
