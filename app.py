@@ -11,9 +11,11 @@ from flask import Flask, request, render_template_string, session, redirect, url
 app = Flask(__name__)
 app.secret_key = "As3ad_Enterprise_Secret_2024"
 
-APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN", "")
-WASERVIX_KEY = os.environ.get("WASERVIX_API_KEY", "")
-WASERVIX_URL = "https://api.waservix.com/v1/messages"
+# ملفات الحفظ والإعدادات
+SETTINGS_FILE = "settings.json"
+CHECKED_FILE = "checked_history.txt"
+VALID_FILE = "valid_history.txt"
+MESSAGED_FILE = "messaged_history.txt"
 
 # --- حالة منصة الواتساب ---
 current_status = "idle"
@@ -35,6 +37,42 @@ COUNTRIES = {
     "Bahrain": {"code": "+973", "length": 8, "prefixes": ["3"], "ar": "البحرين", "flag": "🇧🇭"},
     "Oman": {"code": "+968", "length": 8, "prefixes": ["7", "9"], "ar": "عمان", "flag": "🇴🇲"},
 }
+
+# --- دوال الإعدادات ---
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_settings(data):
+    current = load_settings()
+    current.update(data)
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(current, f)
+
+def get_apify_token():
+    return load_settings().get("APIFY_TOKEN") or os.environ.get("APIFY_API_TOKEN", "")
+
+def get_waservix_key():
+    return load_settings().get("WASERVIX_KEY") or os.environ.get("WASERVIX_API_KEY", "")
+
+# --- دوال الذاكرة ---
+def load_set(filename):
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
+
+def append_to_file(filename, items):
+    with open(filename, "a", encoding="utf-8") as f:
+        for item in items:
+            f.write(item + "\n")
+
+# --- القوالب (Templates) ---
 
 LOGIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -99,7 +137,7 @@ DASHBOARD_TEMPLATE = """
         .logout-btn { padding: 20px; border-top: 1px solid var(--border); color: var(--danger); text-decoration: none; font-weight: 700; display: flex; justify-content: center; }
         .main-content { flex: 1; overflow-y: auto; padding: 30px; display: none; }
         .main-content.active { display: block; }
-        .header-title { font-size: 24px; font-weight: 800; margin-bottom: 25px; }
+        .header-title { font-size: 24px; font-weight: 800; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; }
         .stat-icon { width: 60px; height: 60px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 24px; }
@@ -115,9 +153,11 @@ DASHBOARD_TEMPLATE = """
         label { display: block; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
         select, input, textarea { width: 100%; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: white; outline: none; font-family: 'Tajawal'; font-size: 15px; }
         textarea { resize: vertical; min-height: 120px; }
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; transition: 0.3s; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: white; }
         .btn:disabled { background: #334155; color: var(--muted); cursor: not-allowed; }
         .terminal-panel { background: #020617; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; height: 550px; }
         .terminal-header { background: #0f172a; padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
@@ -149,16 +189,21 @@ DASHBOARD_TEMPLATE = """
         <div class="nav-menu">
             <div class="nav-item active" id="nav-wa" onclick="switchTab('wa')">📱 فاحص واتساب</div>
             <div class="nav-item" id="nav-send" onclick="switchTab('send')">📨 مرسل الرسائل</div>
+            <div class="nav-item" id="nav-settings" onclick="switchTab('settings')">⚙️ الإعدادات</div>
         </div>
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
     </div>
 
+    <!-- WhatsApp Section -->
     <div class="main-content active" id="wa-section">
-        <div class="header-title">منصة فحص أرقام الواتساب</div>
+        <div class="header-title">
+            <span>منصة فحص أرقام الواتساب</span>
+            <button onclick="resetHistory()" class="btn btn-danger" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px;">🗑️ مسح سجل الأرقام المفحوصة</button>
+        </div>
         <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon total">📊</div><div class="stat-info"><h4>الأرقام المفحوصة</h4><span id="statTotal">0</span></div></div>
-            <div class="stat-card"><div class="stat-icon valid">✅</div><div class="stat-info"><h4>مسجلة (واتساب)</h4><span id="statValid">0</span></div></div>
-            <div class="stat-card"><div class="stat-icon invalid">❌</div><div class="stat-info"><h4>غير مسجلة</h4><span id="statInvalid">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon total">📊</div><div class="stat-info"><h4>الأرقام المفحوصة (هذه الجلسة)</h4><span id="statTotal">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon valid">✅</div><div class="stat-info"><h4>مسجلة (هذه الجلسة)</h4><span id="statValid">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon invalid">❌</div><div class="stat-info"><h4>غير مسجلة (هذه الجلسة)</h4><span id="statInvalid">0</span></div></div>
         </div>
         <div class="content-grid">
             <div class="panel">
@@ -170,7 +215,7 @@ DASHBOARD_TEMPLATE = """
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>2. عدد الأرقام المطلوب توليدها</label>
+                    <label>2. عدد الأرقام المطلوب توليدها (سيتم تخطي الأرقام المفحوصة سابقاً)</label>
                     <input type="number" id="count" value="50" min="1" max="1000">
                 </div>
                 <button class="btn btn-primary" onclick="generateNumbers()" id="genBtn">✨ توليد الأرقام</button>
@@ -187,17 +232,18 @@ DASHBOARD_TEMPLATE = """
             </div>
         </div>
         <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-            <div><h3 style="font-size: 16px; margin-bottom: 5px;">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">قم بتحميل ملف يحتوي على الأرقام الصالحة فقط.</p></div>
-            <button onclick="downloadResults()" style="padding: 12px 25px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 8px; color: white; border: none; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 15px;">⬇️ تحميل الأرقام الناجحة (.txt)</button>
+            <div><h3 style="font-size: 16px; margin-bottom: 5px;">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">تحميل كل الأرقام الصالحة (بدون تكرار) من كل الفحوصات.</p></div>
+            <button onclick="downloadResults()" style="padding: 12px 25px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 8px; color: white; border: none; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 15px;">⬇️ تحميل كل الأرقام الناجحة (.txt)</button>
         </div>
     </div>
 
+    <!-- Sender Section -->
     <div class="main-content" id="send-section">
         <div class="header-title">مرسل الرسائل الجماعية</div>
         <div class="content-grid">
             <div class="panel">
                 <div class="panel-title">📝 كتابة الرسالة</div>
-                <p style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">الأرقام الجاهزة للإرسال: <strong id="validNumbersCount" style="color: white; font-size: 18px;">0</strong></p>
+                <p style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">الأرقام الجاهزة للإرسال (التي لم يتم مراسلتها سابقاً): <strong id="validNumbersCount" style="color: white; font-size: 18px;">0</strong></p>
                 <div class="form-group">
                     <label>نص الرسالة</label>
                     <textarea id="messageText" placeholder="اكتب رسالتك هنا..."></textarea>
@@ -215,6 +261,24 @@ DASHBOARD_TEMPLATE = """
         </div>
     </div>
 
+    <!-- Settings Section -->
+    <div class="main-content" id="settings-section">
+        <div class="header-title">إعدادات المنصة</div>
+        <div class="panel" style="max-width: 600px; margin: 0 auto;">
+            <div class="panel-title">🔑 مفاتيح API</div>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+                يمكنك تغيير المفاتيح هنا مباشرة. <br>
+                <strong>ملاحظة:</strong> التغيير هنا ساري المفعول حتى يتم إعادة تشغيل السيرفر. لتغيير دائم، يرجى تحديثه في Environment Variables على Render.
+            </p>
+            
+            <div class="form-group">
+                <label>Apify API Token</label>
+                <input type="text" id="apifyTokenInput" placeholder="apify_api_..." value="{{ apify_token }}">
+            </div>
+            <button class="btn btn-primary" onclick="saveSettings()" id="saveBtn">💾 حفظ المفاتيح</button>
+        </div>
+    </div>
+
     <script>
         let pollingInterval = null;
         let sendPolling = null;
@@ -222,13 +286,45 @@ DASHBOARD_TEMPLATE = """
         function switchTab(tab) {
             document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
             if(tab === 'wa') {
                 document.getElementById('wa-section').classList.add('active');
                 document.getElementById('nav-wa').classList.add('active');
-            } else {
+            } else if(tab === 'send') {
                 document.getElementById('send-section').classList.add('active');
                 document.getElementById('nav-send').classList.add('active');
                 checkValidNumbers();
+            } else if(tab === 'settings') {
+                document.getElementById('settings-section').classList.add('active');
+                document.getElementById('nav-settings').classList.add('active');
+            }
+        }
+
+        async function saveSettings() {
+            const apifyToken = document.getElementById('apifyTokenInput').value;
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true; btn.innerHTML = `⏳ جاري الحفظ...`;
+            
+            const res = await fetch('/api/save-settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ apify_token: apifyToken })
+            });
+            
+            if (res.ok) {
+                alert("تم حفظ الإعدادات بنجاح.");
+            } else {
+                alert("حدث خطأ أثناء الحفظ.");
+            }
+            btn.disabled = false; btn.innerHTML = `💾 حفظ المفاتيح`;
+        }
+
+        async function resetHistory() {
+            if (!confirm("هل أنت متأكد من مسح سجل الأرقام؟ سيتمكن النظام من توليد أرقام مفحوصة سابقاً مرة أخرى.")) return;
+            const res = await fetch('/api/reset-history', { method: 'POST' });
+            if (res.ok) {
+                alert("تم مسح السجل بنجاح.");
+                location.reload();
             }
         }
 
@@ -241,7 +337,7 @@ DASHBOARD_TEMPLATE = """
             const data = await res.json();
             document.getElementById('checkBtn').disabled = false;
             btn.disabled = false; btn.innerHTML = `✨ توليد الأرقام`;
-            addLog(`[+] تم توليد ${data.count} رقم بنجاح.`, 'log-success');
+            addLog(`[+] تم توليد ${data.count} رقم جديد (لم يتم فحصه سابقاً).`, 'log-success');
         }
 
         async function startChecking() {
@@ -343,21 +439,31 @@ DASHBOARD_TEMPLATE = """
 </html>
 """
 
-# --- الوظائف ---
+# --- الوظائف الأساسية ---
 
 def generate_numbers_func(country, count):
-    numbers = []
+    checked_history = load_set(CHECKED_FILE)
     config = COUNTRIES[country]
-    for _ in range(count):
+    numbers = []
+    attempts = 0
+    max_attempts = count * 20 
+    
+    while len(numbers) < count and attempts < max_attempts:
         prefix = random.choice(config["prefixes"])
         rest_length = config["length"] - len(prefix)
         rest = "".join(random.choices(string.digits, k=rest_length))
-        numbers.append(f"{config['code']}{prefix}{rest}")
+        num = f"{config['code']}{prefix}{rest}"
+        
+        if num not in checked_history and num not in numbers:
+            numbers.append(num)
+        attempts += 1
+        
     return numbers
 
 def process_apify(numbers):
     global current_status, logs, valid_numbers, stats
-    if not APIFY_TOKEN:
+    apify_token = get_apify_token()
+    if not apify_token:
         logs.append("❌ خطأ: لم يتم تعيين APIFY_API_TOKEN.")
         current_status = "idle"; return
     
@@ -369,55 +475,55 @@ def process_apify(numbers):
     for idx, chunk in enumerate(chunks):
         logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
         
-        # استخدام الوكيل الجديد
-        url = f"https://api.apify.com/v2/acts/apivault_labs~whatsapp-number-validator/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+        url = f"https://api.apify.com/v2/acts/apivault_labs~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
         payload = {"phoneNumbers": chunk}
         
         try:
             response = requests.post(url, json=payload, timeout=120)
-            
             raw_preview = response.text[:500] if response.text else "(empty)"
-            logs.append(f"[DEBUG] كود الرد: {response.status_code}")
             
             if response.status_code in [200, 201]:
                 try:
                     data = response.json()
                 except json.JSONDecodeError:
-                    logs.append(f"❌ الدفعة {idx+1}: الرد ليس JSON. الرد الخام: {raw_preview}")
+                    logs.append(f"❌ الدفعة {idx+1}: الرد ليس JSON.")
                     continue
                 
-                if not data:
-                    logs.append(f"⚠️ الدفعة {idx+1} رجعت فارغة.")
-                    logs.append(f"[DEBUG] الرد الخام: {raw_preview}")
-                    continue
-                
-                if isinstance(data, dict) and "error" in data:
-                    logs.append(f"❌ الدفعة {idx+1}: Apify أعاد خطأ: {data.get('error')}")
+                if not data or (isinstance(data, dict) and "error" in data):
+                    logs.append(f"❌ الدفعة {idx+1}: استجابة غير صالحة: {raw_preview}")
                     continue
                 
                 processed = 0
+                current_chunk_checked = []
+                current_chunk_valid = []
+                
                 for item in data:
                     if not isinstance(item, dict): continue
                     
-                    # الوكيل الجديد يستخدم حقل 'input' أو 'e164' للرقم، و 'whatsapp' للنتيجة
                     phone = item.get("input") or item.get("e164") or item.get("phone")
                     has_wa = item.get("whatsapp")
                     
-                    if "summary" in item and not phone:
-                        continue
-                    
-                    if phone is None:
-                        continue
+                    if "summary" in item and not phone: continue
+                    if phone is None: continue
                     
                     processed += 1
                     stats["total"] += 1
+                    current_chunk_checked.append(phone)
+                    
                     if has_wa:
-                        logs.append(f"✅ مسجل: {phone}"); valid_numbers.append(phone); stats["valid"] += 1
+                        logs.append(f"✅ مسجل: {phone}")
+                        valid_numbers.append(phone)
+                        current_chunk_valid.append(phone)
+                        stats["valid"] += 1
                     else:
-                        logs.append(f"❌ غير مسجل: {phone}"); stats["invalid"] += 1
+                        logs.append(f"❌ غير مسجل: {phone}")
+                        stats["invalid"] += 1
                 
+                if current_chunk_checked: append_to_file(CHECKED_FILE, current_chunk_checked)
+                if current_chunk_valid: append_to_file(VALID_FILE, current_chunk_valid)
+                    
                 if processed == 0:
-                    logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل. الرد الخام: {raw_preview}")
+                    logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل.")
             else:
                 logs.append(f"❌ الدفعة {idx+1} (كود {response.status_code}): {raw_preview}")
                 
@@ -433,26 +539,41 @@ def process_bulk_send(message):
     global send_status, send_logs, send_progress
     send_status = "running"
     send_logs.clear()
-    send_progress = {"current": 0, "total": len(valid_numbers), "success": 0, "failed": 0}
     
-    if not WASERVIX_KEY:
+    valid_all = load_set(VALID_FILE)
+    messaged_history = load_set(MESSAGED_FILE)
+    to_send = [num for num in valid_all if num not in messaged_history]
+    
+    send_progress = {"current": 0, "total": len(to_send), "success": 0, "failed": 0}
+    waservix_key = get_waservix_key()
+    
+    if not waservix_key:
         send_logs.append("❌ خطأ: لم يتم تعيين WASERVIX_API_KEY.")
         send_status = "idle"; return
 
-    send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(valid_numbers)} رقم...")
+    if not to_send:
+        send_logs.append("⚠️ لا توجد أرقام جديدة لإرسالها.")
+        send_status = "idle"; return
 
-    for number in valid_numbers:
+    send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(to_send)} رقم جديد...")
+
+    for number in to_send:
         clean_number = number.replace("+", "").strip()
         send_logs.append(f"[*] جاري الإرسال إلى: {number}")
         try:
-            payload = {"apiKey": WASERVIX_KEY, "phone": clean_number, "message": message}
-            response = requests.post(WASERVIX_URL, json=payload, timeout=15)
+            payload = {"apiKey": waservix_key, "phone": clean_number, "message": message}
+            response = requests.post("https://api.waservix.com/v1/messages", json=payload, timeout=15)
             if response.status_code == 200:
-                send_logs.append(f"✅ نجح: {number}"); send_progress["success"] += 1
+                send_logs.append(f"✅ نجح: {number}")
+                send_progress["success"] += 1
+                append_to_file(MESSAGED_FILE, [number])
             else:
-                send_logs.append(f"❌ فشل: {number} (كود: {response.status_code})"); send_progress["failed"] += 1
+                send_logs.append(f"❌ فشل: {number} (كود: {response.status_code})")
+                send_progress["failed"] += 1
         except Exception as e:
-            send_logs.append(f"❌ خطأ: {number} ({str(e)[:50]})"); send_progress["failed"] += 1
+            send_logs.append(f"❌ خطأ: {number} ({str(e)[:50]})")
+            send_progress["failed"] += 1
+            
         send_progress["current"] += 1
         if send_progress["current"] % 10 == 0:
             if len(send_logs) > 50: send_logs.pop(0)
@@ -466,7 +587,11 @@ def process_bulk_send(message):
 @app.route('/')
 def index():
     if not session.get('logged_in'): return redirect(url_for('login'))
-    return render_template_string(DASHBOARD_TEMPLATE, countries=COUNTRIES)
+    return render_template_string(
+        DASHBOARD_TEMPLATE, 
+        countries=COUNTRIES,
+        apify_token=load_settings().get("APIFY_TOKEN", "")
+    )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -483,6 +608,20 @@ def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
 
+@app.route('/api/save-settings', methods=['POST'])
+def save_settings_api():
+    data = request.json
+    save_settings({
+        "APIFY_TOKEN": data.get("apify_token", "")
+    })
+    return {"status": "success"}
+
+@app.route('/api/reset-history', methods=['POST'])
+def reset_history():
+    for f in [CHECKED_FILE, VALID_FILE, MESSAGED_FILE]:
+        if os.path.exists(f): os.remove(f)
+    return {"status": "success"}
+
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
     global generated_numbers, logs, stats
@@ -490,7 +629,7 @@ def generate_api():
     country = data.get('country'); count = int(data.get('count', 10))
     generated_numbers = generate_numbers_func(country, count)
     logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}
-    logs.append(f"[*] تم توليد {count} رقم لدولة {COUNTRIES[country]['ar']}.")
+    logs.append(f"[*] تم توليد {len(generated_numbers)} رقم جديد لدولة {COUNTRIES[country]['ar']} (تم تخطي الأرقام المفحوصة سابقاً).")
     return {"count": len(generated_numbers)}
 
 @app.route('/api/check', methods=['POST'])
@@ -514,23 +653,27 @@ def status_api():
 
 @app.route('/api/download')
 def download_api():
-    if not valid_numbers: return "لا توجد أرقام ناجحة.", 404
-    output = io.StringIO()
-    for num in valid_numbers: output.write(f"{num}\n")
-    return Response(output.getvalue(), mimetype="text/plain", headers={"Content-Disposition": "attachment;filename=valid_numbers.txt"})
+    valid_all = load_set(VALID_FILE)
+    if not valid_all: return "لا توجد أرقام ناجحة.", 404
+    output = "\n".join(valid_all)
+    return Response(output, mimetype="text/plain", headers={"Content-Disposition": "attachment;filename=all_valid_numbers.txt"})
 
 @app.route('/api/valid-count')
 def valid_count():
-    return {"count": len(valid_numbers)}
+    valid_all = load_set(VALID_FILE)
+    messaged = load_set(MESSAGED_FILE)
+    return {"count": len(valid_all - messaged)}
 
 @app.route('/api/send-bulk', methods=['POST'])
 def send_bulk_api():
     global send_status
     data = request.json
     message = data.get('message', '').strip()
-    if not valid_numbers: return {"error": "لا توجد أرقام"}, 400
     if not message: return {"error": "الرسالة فارغة"}, 400
     if send_status == "running": return {"error": "قيد التشغيل"}, 400
+    valid_all = load_set(VALID_FILE)
+    messaged = load_set(MESSAGED_FILE)
+    if not (valid_all - messaged): return {"error": "لا توجد أرقام جديدة للإرسال."}, 400
     threading.Thread(target=process_bulk_send, args=(message,)).start()
     return {"status": "started"}
 
