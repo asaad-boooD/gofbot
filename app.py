@@ -80,33 +80,65 @@ LOGIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>As3ad Platform | تسجيل الدخول</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <title>As3ad Platform | System Access</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #0b1120; --surface: #1e293b; --primary: #6366f1; --primary-hover: #4f46e5; --text: #f8fafc; --danger: #f43f5e; --border: #334155; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
-        body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; background-image: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(244, 63, 94, 0.15), transparent 25%); }
-        .login-box { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 50px 40px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); width: 100%; max-width: 420px; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
-        .logo-icon { font-size: 40px; margin-bottom: 15px; display: inline-block; }
-        h2 { color: var(--text); margin-bottom: 10px; font-weight: 700; font-size: 28px; }
-        p.subtitle { color: #94a3b8; margin-bottom: 35px; font-size: 15px; }
-        .input-group { margin-bottom: 20px; text-align: right; }
-        label { display: block; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
-        input { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; color: white; outline: none; transition: all 0.3s; font-family: 'Tajawal'; font-size: 15px; }
-        input:focus { border-color: var(--primary); }
-        button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 10px; font-family: 'Tajawal'; }
-        button:hover { background: var(--primary-hover); }
-        .error { color: var(--danger); background: rgba(244, 63, 94, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; border: 1px solid rgba(244, 63, 94, 0.2); }
+        :root { 
+            --bg: #050810; 
+            --panel: rgba(15, 23, 42, 0.8); 
+            --primary: #00f0ff; 
+            --primary-hover: #00c4d1;
+            --text: #e2e8f0; 
+            --muted: #64748b;
+            --danger: #f43f5e; 
+            --border: rgba(0, 240, 255, 0.2); 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        body { 
+            background-color: var(--bg); color: var(--text); 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+        }
+        .login-box { 
+            background: var(--panel); backdrop-filter: blur(20px); 
+            padding: 50px 40px; border-radius: 24px; 
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 0 1px var(--border); 
+            width: 100%; max-width: 420px; text-align: center; 
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .logo-icon { font-size: 48px; margin-bottom: 15px; display: inline-block; filter: drop-shadow(0 0 10px var(--primary)); }
+        h2 { color: var(--text); margin-bottom: 10px; font-weight: 900; font-size: 28px; letter-spacing: -0.5px; }
+        p.subtitle { color: var(--muted); margin-bottom: 35px; font-size: 15px; font-weight: 600; }
+        .input-group { margin-bottom: 20px; text-align: right; position: relative; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; font-weight: 700; }
+        input { 
+            width: 100%; padding: 16px; background: rgba(0,0,0,0.3); 
+            border: 1px solid #334155; border-radius: 12px; color: white; 
+            outline: none; transition: all 0.3s; font-family: 'Cairo'; font-size: 15px; 
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); }
+        button { 
+            width: 100%; padding: 16px; background: var(--primary); color: #000; 
+            border: none; border-radius: 12px; font-size: 16px; font-weight: 900; 
+            cursor: pointer; transition: all 0.3s; margin-top: 10px; font-family: 'Cairo'; 
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        button:hover { background: var(--primary-hover); box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); transform: translateY(-2px); }
+        .error { color: var(--danger); background: rgba(244, 63, 94, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(244, 63, 94, 0.3); }
     </style>
 </head>
 <body>
     <div class="login-box">
-        <div class="logo-icon">🚀</div>
+        <div class="logo-icon">⚡</div>
         <h2>As3ad Platform</h2>
         <p class="subtitle">منصة الخدمات الذكية المتكاملة</p>
         {% if error %}<div class="error">{{ error }}</div>{% endif %}
         <form method="POST">
-            <div class="input-group"><label>اسم المستخدم</label><input type="text" name="username" placeholder="As3ad" required autocomplete="off"></div>
+            <div class="input-group"><label>اسم المستخدم</label><input type="text" name="username" placeholder="أدخل اسم المستخدم" required autocomplete="off"></div>
             <div class="input-group"><label>كلمة المرور</label><input type="password" name="password" placeholder="••••••" required></div>
             <button type="submit">تسجيل الدخول</button>
         </form>
@@ -121,71 +153,140 @@ DASHBOARD_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>As3ad Platform | لوحة التحكم</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <title>As3ad Platform | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #0b1120; --surface: #1e293b; --primary: #6366f1; --success: #10b981; --danger: #f43f5e; --text: #f8fafc; --muted: #94a3b8; --border: #334155; --sidebar: #0f172a; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
+        :root { 
+            --bg: #050810; 
+            --panel: #0f172a; 
+            --panel-light: #1e293b;
+            --primary: #00f0ff; 
+            --success: #10b981; 
+            --danger: #f43f5e; 
+            --text: #e2e8f0; 
+            --muted: #64748b; 
+            --border: #1e293b; 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
         body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 260px; background: var(--sidebar); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        .brand { padding: 25px 20px; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
-        .brand-icon { color: var(--primary); font-size: 26px; }
-        .nav-menu { padding: 20px 10px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-        .nav-item { padding: 15px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-weight: 600; color: var(--muted); transition: 0.3s; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
-        .nav-item.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); border-right: 4px solid var(--primary); }
-        .logout-btn { padding: 20px; border-top: 1px solid var(--border); color: var(--danger); text-decoration: none; font-weight: 700; display: flex; justify-content: center; }
-        .main-content { flex: 1; overflow-y: auto; padding: 30px; display: none; }
-        .main-content.active { display: block; }
-        .header-title { font-size: 24px; font-weight: 800; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; }
-        .stat-icon { width: 60px; height: 60px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 24px; }
-        .stat-icon.total { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
-        .stat-icon.valid { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .stat-icon.invalid { background: rgba(244, 63, 94, 0.1); color: var(--danger); }
-        .stat-info h4 { color: var(--muted); font-size: 14px; margin-bottom: 5px; }
-        .stat-info span { font-size: 28px; font-weight: 800; }
-        .content-grid { display: grid; grid-template-columns: 400px 1fr; gap: 30px; }
-        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 30px; }
-        .panel-title { font-size: 18px; font-weight: 700; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        
+        /* Sidebar */
+        .sidebar { 
+            width: 280px; background: var(--panel); 
+            border-left: 1px solid var(--border); display: flex; flex-direction: column; 
+            box-shadow: 10px 0 30px rgba(0,0,0,0.3); z-index: 10;
+        }
+        .brand { padding: 30px 20px; font-size: 24px; font-weight: 900; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .brand-icon { color: var(--primary); font-size: 28px; filter: drop-shadow(0 0 8px var(--primary)); }
+        .nav-menu { padding: 20px 15px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .nav-item { 
+            padding: 16px 20px; border-radius: 12px; cursor: pointer; 
+            display: flex; align-items: center; gap: 15px; font-weight: 700; 
+            color: var(--muted); transition: all 0.3s; border: 1px solid transparent;
+        }
+        .nav-item:hover { background: rgba(0, 240, 255, 0.05); color: var(--text); }
+        .nav-item.active { 
+            background: rgba(0, 240, 255, 0.1); color: var(--primary); 
+            border: 1px solid rgba(0, 240, 255, 0.2); box-shadow: 0 0 15px rgba(0,240,255,0.1); 
+        }
+        .logout-btn { 
+            padding: 20px; border-top: 1px solid var(--border); 
+            color: var(--danger); text-decoration: none; font-weight: 900; 
+            display: flex; justify-content: center; transition: 0.3s; 
+        }
+        .logout-btn:hover { background: rgba(244, 63, 94, 0.1); color: #ff6b6b; }
+
+        /* Main Content */
+        .main-content { flex: 1; overflow-y: auto; padding: 40px; display: none; }
+        .main-content.active { display: block; animation: slideUp 0.5s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .header-title { font-size: 28px; font-weight: 900; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
+        
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 40px; }
+        .stat-card { 
+            background: var(--panel-light); border: 1px solid var(--border); 
+            border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; 
+            transition: transform 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-icon { width: 65px; height: 65px; border-radius: 16px; display: flex; justify-content: center; align-items: center; font-size: 28px; }
+        .stat-icon.total { background: rgba(0, 240, 255, 0.1); color: var(--primary); border: 1px solid rgba(0,240,255,0.2); }
+        .stat-icon.valid { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+        .stat-icon.invalid { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid rgba(244,63,94,0.2); }
+        .stat-info h4 { color: var(--muted); font-size: 14px; margin-bottom: 8px; font-weight: 700; }
+        .stat-info span { font-size: 32px; font-weight: 900; color: var(--text); }
+
+        /* Content Layout */
+        .content-grid { display: grid; grid-template-columns: 380px 1fr; gap: 30px; }
+        .panel { 
+            background: var(--panel); border: 1px solid var(--border); 
+            border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .panel-title { font-size: 20px; font-weight: 900; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+        
         .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
-        select, input, textarea { width: 100%; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: white; outline: none; font-family: 'Tajawal'; font-size: 15px; }
+        label { display: block; margin-bottom: 10px; font-size: 14px; color: var(--muted); font-weight: 700; }
+        select, input, textarea { 
+            width: 100%; padding: 14px; background: rgba(0,0,0,0.3); 
+            border: 1px solid #334155; border-radius: 12px; color: white; 
+            outline: none; font-family: 'Cairo'; font-size: 15px; transition: 0.3s;
+        }
+        select:focus, input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0,240,255,0.1); }
         textarea { resize: vertical; min-height: 120px; }
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; transition: 0.3s; }
-        .btn-primary { background: var(--primary); color: white; }
+        
+        .btn { 
+            width: 100%; padding: 16px; border: none; border-radius: 12px; 
+            font-weight: 900; cursor: pointer; font-family: 'Cairo'; font-size: 16px; 
+            display: flex; justify-content: center; align-items: center; gap: 10px; 
+            margin-top: 10px; transition: 0.3s; 
+        }
+        .btn-primary { background: var(--primary); color: #000; }
+        .btn-primary:hover { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); transform: translateY(-2px); }
         .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
         .btn-danger { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; }
-        .btn:disabled { background: #334155; color: var(--muted); cursor: not-allowed; }
-        .terminal-panel { background: #020617; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; height: 550px; }
-        .terminal-header { background: #0f172a; padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+        .btn:disabled { background: #1e293b; color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* Terminal Panel */
+        .terminal-panel { 
+            background: #000000; border: 1px solid var(--border); 
+            border-radius: 20px; display: flex; flex-direction: column; height: 600px; 
+            overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+        }
+        .terminal-header { background: var(--panel-light); padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
         .dot { width: 12px; height: 12px; border-radius: 50%; }
         .dot.red { background: #ef4444; } .dot.yellow { background: #f59e0b; } .dot.green { background: #10b981; }
-        .terminal-title { margin-right: auto; font-size: 13px; color: var(--muted); font-family: monospace; }
-        .terminal-body { padding: 20px; flex: 1; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; direction: ltr; text-align: left; }
-        .log-line { margin-bottom: 6px; padding: 4px 8px; border-radius: 4px; word-wrap: break-word; }
-        .log-info { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
-        .log-success { color: var(--success); background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--success); }
-        .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.1); border-left: 3px solid var(--danger); }
-        .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; }
-        .progress-container { width: 100%; background: var(--bg); border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 20px; overflow: hidden; }
-        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .terminal-title { margin-right: auto; font-size: 13px; color: var(--muted); font-family: monospace; font-weight: bold; }
+        .terminal-body { padding: 20px; flex: 1; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.6; direction: ltr; text-align: left; }
+        .log-line { margin-bottom: 6px; padding: 4px 8px; border-radius: 4px; }
+        .log-info { color: var(--primary); background: rgba(0, 240, 255, 0.05); }
+        .log-success { color: var(--success); background: rgba(16, 185, 129, 0.05); border-left: 3px solid var(--success); }
+        .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.05); border-left: 3px solid var(--danger); }
+        .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.05); border-left: 3px solid #f59e0b; }
+
+        /* Progress Bar */
+        .progress-container { width: 100%; background: #000; border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 24px; overflow: hidden; position: relative; }
+        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--primary); }
+        .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; color: #fff; }
+
         @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0 10px; height: 60px; border-left: none; border-bottom: 1px solid var(--border); }
-            .brand { padding: 10px; font-size: 18px; border-bottom: none; }
+            .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0 10px; height: 70px; border-left: none; border-bottom: 1px solid var(--border); }
+            .brand { padding: 10px; font-size: 20px; border-bottom: none; }
             .nav-menu { flex-direction: row; padding: 0; gap: 5px; }
             .nav-item { padding: 10px; font-size: 14px; }
             .logout-btn { padding: 10px; border-top: none; font-size: 14px; }
+            .main-content { padding: 20px; }
         }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <div class="brand"><span class="brand-icon">🚀</span> As3ad</div>
+        <div class="brand"><span class="brand-icon">⚡</span> As3ad</div>
         <div class="nav-menu">
             <div class="nav-item active" id="nav-wa" onclick="switchTab('wa')">📱 فاحص واتساب</div>
             <div class="nav-item" id="nav-send" onclick="switchTab('send')">📨 مرسل الرسائل</div>
@@ -198,12 +299,12 @@ DASHBOARD_TEMPLATE = """
     <div class="main-content active" id="wa-section">
         <div class="header-title">
             <span>منصة فحص أرقام الواتساب</span>
-            <button onclick="resetHistory()" class="btn btn-danger" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px;">🗑️ مسح سجل الأرقام المفحوصة</button>
+            <button onclick="resetHistory()" class="btn btn-danger" style="width: auto; padding: 10px 20px; margin: 0; font-size: 14px;">🗑️ مسح سجل الأرقام</button>
         </div>
         <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon total">📊</div><div class="stat-info"><h4>الأرقام المفحوصة (هذه الجلسة)</h4><span id="statTotal">0</span></div></div>
-            <div class="stat-card"><div class="stat-icon valid">✅</div><div class="stat-info"><h4>مسجلة (هذه الجلسة)</h4><span id="statValid">0</span></div></div>
-            <div class="stat-card"><div class="stat-icon invalid">❌</div><div class="stat-info"><h4>غير مسجلة (هذه الجلسة)</h4><span id="statInvalid">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon total">📊</div><div class="stat-info"><h4>الأرقام المفحوصة</h4><span id="statTotal">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon valid">✅</div><div class="stat-info"><h4>مسجلة (واتساب)</h4><span id="statValid">0</span></div></div>
+            <div class="stat-card"><div class="stat-icon invalid">❌</div><div class="stat-info"><h4>غير مسجلة</h4><span id="statInvalid">0</span></div></div>
         </div>
         <div class="content-grid">
             <div class="panel">
@@ -215,7 +316,7 @@ DASHBOARD_TEMPLATE = """
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>2. عدد الأرقام المطلوب توليدها (سيتم تخطي الأرقام المفحوصة سابقاً)</label>
+                    <label>2. عدد الأرقام المطلوب توليدها</label>
                     <input type="number" id="count" value="50" min="1" max="1000">
                 </div>
                 <button class="btn btn-primary" onclick="generateNumbers()" id="genBtn">✨ توليد الأرقام</button>
@@ -231,9 +332,9 @@ DASHBOARD_TEMPLATE = """
                 <div class="terminal-body" id="logsBox"><div class="log-line log-info">> System initialized. Ready for commands...</div></div>
             </div>
         </div>
-        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-            <div><h3 style="font-size: 16px; margin-bottom: 5px;">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">تحميل كل الأرقام الصالحة (بدون تكرار) من كل الفحوصات.</p></div>
-            <button onclick="downloadResults()" style="padding: 12px 25px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 8px; color: white; border: none; font-weight: 700; cursor: pointer; font-family: 'Tajawal'; font-size: 15px;">⬇️ تحميل كل الأرقام الناجحة (.txt)</button>
+        <div style="background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 25px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+            <div><h3 style="font-size: 18px; margin-bottom: 5px; color: var(--text);">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">تحميل كل الأرقام الصالحة (بدون تكرار).</p></div>
+            <button onclick="downloadResults()" class="btn btn-primary" style="width: auto; padding: 12px 25px; margin: 0;">⬇️ تحميل الأرقام الناجحة (.txt)</button>
         </div>
     </div>
 
@@ -243,16 +344,19 @@ DASHBOARD_TEMPLATE = """
         <div class="content-grid">
             <div class="panel">
                 <div class="panel-title">📝 كتابة الرسالة</div>
-                <p style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">الأرقام الجاهزة للإرسال (التي لم يتم مراسلتها سابقاً): <strong id="validNumbersCount" style="color: white; font-size: 18px;">0</strong></p>
+                <p style="font-size: 15px; color: var(--muted); margin-bottom: 20px; background: rgba(0,240,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(0,240,255,0.1);">
+                    الأرقام الجاهزة للإرسال: <strong id="validNumbersCount" style="color: var(--primary); font-size: 20px;">0</strong>
+                </p>
                 <div class="form-group">
                     <label>نص الرسالة</label>
                     <textarea id="messageText" placeholder="اكتب رسالتك هنا..."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="startSending()" id="sendBtn">🚀 بدء الإرسال</button>
                 <div class="progress-container">
-                    <div class="progress-bar" id="sendProgress" style="background: var(--success);"></div>
+                    <div class="progress-bar" id="sendProgress"></div>
+                    <div class="progress-text" id="sendProgressText">0%</div>
                 </div>
-                <p style="text-align: center; font-size: 14px;" id="sendStats">0 / 0</p>
+                <p style="text-align: center; font-size: 15px; font-weight: bold;" id="sendStats">0 / 0</p>
             </div>
             <div class="terminal-panel">
                 <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@sender: ~/logs</span></div>
@@ -266,9 +370,9 @@ DASHBOARD_TEMPLATE = """
         <div class="header-title">إعدادات المنصة</div>
         <div class="panel" style="max-width: 600px; margin: 0 auto;">
             <div class="panel-title">🔑 مفاتيح API</div>
-            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+            <p style="font-size: 14px; color: var(--muted); margin-bottom: 25px; line-height: 1.6;">
                 يمكنك تغيير المفاتيح هنا مباشرة. <br>
-                <strong>ملاحظة:</strong> التغيير هنا ساري المفعول حتى يتم إعادة تشغيل السيرفر. لتغيير دائم، يرجى تحديثه في Environment Variables على Render.
+                <strong style="color: var(--danger);">ملاحظة:</strong> التغيير هنا ساري المفعول حتى يتم إعادة تشغيل السيرفر.
             </p>
             
             <div class="form-group">
@@ -279,7 +383,7 @@ DASHBOARD_TEMPLATE = """
             <hr style="border-color: var(--border); margin: 25px 0;">
             
             <div class="form-group">
-                <label>WasenderAPI Key (Session API Key)</label>
+                <label>WasenderAPI Key</label>
                 <input type="text" id="wasenderKeyInput" placeholder="your_wasender_api_key" value="{{ wasender_key }}">
             </div>
             
@@ -318,27 +422,19 @@ DASHBOARD_TEMPLATE = """
             const res = await fetch('/api/save-settings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    apify_token: apifyToken,
-                    wasender_key: wasenderKey
-                })
+                body: JSON.stringify({ apify_token: apifyToken, wasender_key: wasenderKey })
             });
             
-            if (res.ok) {
-                alert("تم حفظ الإعدادات بنجاح.");
-            } else {
-                alert("حدث خطأ أثناء الحفظ.");
-            }
+            if (res.ok) alert("تم حفظ الإعدادات بنجاح.");
+            else alert("حدث خطأ أثناء الحفظ.");
+            
             btn.disabled = false; btn.innerHTML = `💾 حفظ المفاتيح`;
         }
 
         async function resetHistory() {
-            if (!confirm("هل أنت متأكد من مسح سجل الأرقام؟ سيتمكن النظام من توليد أرقام مفحوصة سابقاً مرة أخرى.")) return;
+            if (!confirm("هل أنت متأكد من مسح سجل الأرقام؟")) return;
             const res = await fetch('/api/reset-history', { method: 'POST' });
-            if (res.ok) {
-                alert("تم مسح السجل بنجاح.");
-                location.reload();
-            }
+            if (res.ok) { alert("تم مسح السجل بنجاح."); location.reload(); }
         }
 
         async function generateNumbers() {
@@ -350,7 +446,7 @@ DASHBOARD_TEMPLATE = """
             const data = await res.json();
             document.getElementById('checkBtn').disabled = false;
             btn.disabled = false; btn.innerHTML = `✨ توليد الأرقام`;
-            addLog(`[+] تم توليد ${data.count} رقم جديد (لم يتم فحصه سابقاً).`, 'log-success');
+            addLog(`[+] تم توليد ${data.count} رقم جديد.`, 'log-success');
         }
 
         async function startChecking() {
@@ -422,6 +518,7 @@ DASHBOARD_TEMPLATE = """
             const data = await res.json();
             const percent = data.progress.total > 0 ? (data.progress.current / data.progress.total) * 100 : 0;
             document.getElementById('sendProgress').style.width = percent + '%';
+            document.getElementById('sendProgressText').innerText = Math.round(percent) + '%';
             document.getElementById('sendStats').innerText = `${data.progress.current} / ${data.progress.total} (نجح: ${data.progress.success} | فشل: ${data.progress.failed})`;
             if (data.logs.length > 0) {
                 const box = document.getElementById('sendLogsBox'); box.innerHTML = "";
@@ -606,7 +703,6 @@ def process_bulk_send(message):
         if send_progress["current"] % 10 == 0:
             if len(send_logs) > 50: send_logs.pop(0)
         
-        # تأخير عشوائي بين 4 إلى 9 ثوانٍ
         time.sleep(random.uniform(4, 9))
 
     send_status = "idle"
