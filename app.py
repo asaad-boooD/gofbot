@@ -57,11 +57,8 @@ def save_settings(data):
 def get_apify_token():
     return load_settings().get("APIFY_TOKEN") or os.environ.get("APIFY_API_TOKEN", "")
 
-def get_waha_url():
-    return load_settings().get("WAHA_URL") or os.environ.get("WAHA_URL", "")
-
-def get_waha_key():
-    return load_settings().get("WAHA_KEY") or os.environ.get("WAHA_API_KEY", "")
+def get_wasender_key():
+    return load_settings().get("WASENDER_API_KEY") or os.environ.get("WASENDER_API_KEY", "")
 
 # --- دوال الذاكرة ---
 def load_set(filename):
@@ -282,12 +279,8 @@ DASHBOARD_TEMPLATE = """
             <hr style="border-color: var(--border); margin: 25px 0;">
             
             <div class="form-group">
-                <label>WAHA Server URL</label>
-                <input type="text" id="wahaUrlInput" placeholder="https://waha-xxxx.onrender.com" value="{{ waha_url }}">
-            </div>
-            <div class="form-group">
-                <label>WAHA API Key</label>
-                <input type="text" id="wahaKeyInput" placeholder="your_waha_api_key" value="{{ waha_key }}">
+                <label>WasenderAPI Key (Session API Key)</label>
+                <input type="text" id="wasenderKeyInput" placeholder="your_wasender_api_key" value="{{ wasender_key }}">
             </div>
             
             <button class="btn btn-primary" onclick="saveSettings()" id="saveBtn">💾 حفظ المفاتيح</button>
@@ -317,8 +310,7 @@ DASHBOARD_TEMPLATE = """
 
         async function saveSettings() {
             const apifyToken = document.getElementById('apifyTokenInput').value;
-            const wahaUrl = document.getElementById('wahaUrlInput').value;
-            const wahaKey = document.getElementById('wahaKeyInput').value;
+            const wasenderKey = document.getElementById('wasenderKeyInput').value;
             
             const btn = document.getElementById('saveBtn');
             btn.disabled = true; btn.innerHTML = `⏳ جاري الحفظ...`;
@@ -328,8 +320,7 @@ DASHBOARD_TEMPLATE = """
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     apify_token: apifyToken,
-                    waha_url: wahaUrl,
-                    waha_key: wahaKey
+                    wasender_key: wasenderKey
                 })
             });
             
@@ -568,50 +559,54 @@ def process_bulk_send(message):
     
     send_progress = {"current": 0, "total": len(to_send), "success": 0, "failed": 0}
     
-    waha_url = get_waha_url().rstrip('/')
-    waha_key = get_waha_key()
+    wasender_key = get_wasender_key()
 
-    if not waha_url or not waha_key:
-        send_logs.append("❌ خطأ: لم يتم تعيين بيانات WAHA (URL أو API Key).")
+    if not wasender_key:
+        send_logs.append("❌ خطأ: لم يتم تعيين WasenderAPI Key في الإعدادات.")
         send_status = "idle"; return
 
     if not to_send:
         send_logs.append("⚠️ لا توجد أرقام جديدة لإرسالها.")
         send_status = "idle"; return
 
-    send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(to_send)} رقم جديد عبر WAHA...")
+    send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(to_send)} رقم جديد عبر WasenderAPI...")
+
+    url = "https://www.wasenderapi.com/api/send-message"
+    headers = {
+        "Authorization": f"Bearer {wasender_key}",
+        "Content-Type": "application/json"
+    }
 
     for number in to_send:
-        clean_number = number.replace("+", "").replace(" ", "").strip()
-        chat_id = f"{clean_number}@c.us"
+        formatted_number = number if number.startswith("+") else f"+{number}"
         
-        send_logs.append(f"[*] جاري الإرسال إلى: {number}")
+        send_logs.append(f"[*] جاري الإرسال إلى: {formatted_number}")
+        
+        payload = {
+            "to": formatted_number,
+            "text": message
+        }
+
         try:
-            payload = {
-                "session": "default",
-                "chatId": chat_id,
-                "text": message
-            }
-            headers = {
-                "X-Api-Key": waha_key,
-                "Content-Type": "application/json"
-            }
-            response = requests.post(f"{waha_url}/api/sendText", json=payload, headers=headers, timeout=15)
+            response = requests.post(url, json=payload, headers=headers, timeout=20)
             
             if response.status_code in [200, 201]:
-                send_logs.append(f"✅ نجح: {number}")
+                send_logs.append(f"✅ نجح: {formatted_number}")
                 send_progress["success"] += 1
                 append_to_file(MESSAGED_FILE, [number])
             else:
-                send_logs.append(f"❌ فشل: {number} (كود: {response.status_code}) - {response.text[:100]}")
+                error_msg = response.text[:100] if response.text else "Unknown error"
+                send_logs.append(f"❌ فشل: {formatted_number} (كود: {response.status_code}) - {error_msg}")
                 send_progress["failed"] += 1
         except Exception as e:
-            send_logs.append(f"❌ خطأ: {number} ({str(e)[:50]})")
+            send_logs.append(f"❌ خطأ: {formatted_number} ({str(e)[:50]})")
             send_progress["failed"] += 1
             
         send_progress["current"] += 1
         if send_progress["current"] % 10 == 0:
             if len(send_logs) > 50: send_logs.pop(0)
+        
+        # تأخير عشوائي بين 4 إلى 9 ثوانٍ
         time.sleep(random.uniform(4, 9))
 
     send_status = "idle"
@@ -626,8 +621,7 @@ def index():
         DASHBOARD_TEMPLATE, 
         countries=COUNTRIES,
         apify_token=load_settings().get("APIFY_TOKEN", ""),
-        waha_url=load_settings().get("WAHA_URL", ""),
-        waha_key=load_settings().get("WAHA_KEY", "")
+        wasender_key=load_settings().get("WASENDER_API_KEY", "")
     )
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -650,8 +644,7 @@ def save_settings_api():
     data = request.json
     save_settings({
         "APIFY_TOKEN": data.get("apify_token", ""),
-        "WAHA_URL": data.get("waha_url", ""),
-        "WAHA_KEY": data.get("waha_key", "")
+        "WASENDER_API_KEY": data.get("wasender_key", "")
     })
     return {"status": "success"}
 
