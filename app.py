@@ -12,20 +12,18 @@ from flask import Flask, request, render_template_string, session, redirect, url
 app = Flask(__name__)
 app.secret_key = "As3ad_Enterprise_Secret_2024"
 
-# ملفات الحفظ والإعدادات
 SETTINGS_FILE = "settings.json"
 CHECKED_FILE = "checked_history.txt"
 VALID_FILE = "valid_history.txt"
 MESSAGED_FILE = "messaged_history.txt"
+GENERATED_FILE = "generated_history.txt"
 
-# --- حالة منصة الواتساب ---
 current_status = "idle"
 logs = []
 generated_numbers = []
 valid_numbers = []
 stats = {"total": 0, "valid": 0, "invalid": 0}
 
-# --- حالة مرسل الرسائل ---
 send_status = "idle"
 send_logs = []
 send_progress = {"current": 0, "total": 0, "success": 0, "failed": 0}
@@ -39,7 +37,6 @@ COUNTRIES = {
     "Oman": {"code": "+968", "length": 8, "prefixes": ["7", "9"], "ar": "عمان", "flag": "🇴🇲"},
 }
 
-# --- دوال الإعدادات ---
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -61,7 +58,6 @@ def get_apify_token():
 def get_wasender_key():
     return load_settings().get("WASENDER_API_KEY") or os.environ.get("WASENDER_API_KEY", "")
 
-# --- دوال الذاكرة ---
 def load_set(filename):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
@@ -73,7 +69,6 @@ def append_to_file(filename, items):
         for item in items:
             f.write(item + "\n")
 
-# --- توليد ملف VCF مع اسم الدولة ---
 def get_country_from_number(number):
     for country, data in COUNTRIES.items():
         if number.startswith(data["code"]):
@@ -86,11 +81,8 @@ def generate_vcf(valid_numbers_set):
         clean = number.strip().replace(" ", "").replace("-", "")
         if not clean.startswith("+"):
             clean = "+" + clean
-        
         country_name = get_country_from_number(clean)
-        # اسم جهة الاتصال يحتوي على الدولة وآخر 4 أرقام للتمييز
-        contact_name = f"WA-{country_name}-{clean[-4:]}" 
-        
+        contact_name = f"WA-{i}"
         lines.append("BEGIN:VCARD")
         lines.append("VERSION:3.0")
         lines.append(f"FN:{contact_name}")
@@ -98,10 +90,7 @@ def generate_vcf(valid_numbers_set):
         lines.append(f"TEL;TYPE=CELL,VOICE:{clean}")
         lines.append(f"NOTE:Country: {country_name} | Validated via As3ad Platform on {datetime.now().strftime('%Y-%m-%d')}")
         lines.append("END:VCARD")
-    
     return "\r\n".join(lines) + "\r\n"
-
-# --- القوالب (Templates) ---
 
 LOGIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -112,50 +101,19 @@ LOGIN_TEMPLATE = """
     <title>As3ad Platform | System Access</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { 
-            --bg: #050810; 
-            --panel: rgba(15, 23, 42, 0.8); 
-            --primary: #00f0ff; 
-            --primary-hover: #00c4d1;
-            --text: #e2e8f0; 
-            --muted: #64748b;
-            --danger: #f43f5e; 
-            --border: rgba(0, 240, 255, 0.2); 
-        }
+        :root { --bg: #050810; --panel: rgba(15, 23, 42, 0.8); --primary: #00f0ff; --primary-hover: #00c4d1; --text: #e2e8f0; --muted: #64748b; --danger: #f43f5e; --border: rgba(0, 240, 255, 0.2); }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-        body { 
-            background-color: var(--bg); color: var(--text); 
-            display: flex; justify-content: center; align-items: center; 
-            height: 100vh; overflow: hidden;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
-        }
-        .login-box { 
-            background: var(--panel); backdrop-filter: blur(20px); 
-            padding: 50px 40px; border-radius: 24px; 
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 0 1px var(--border); 
-            width: 100%; max-width: 420px; text-align: center; 
-            animation: fadeIn 0.8s ease-out;
-        }
+        body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; background-image: radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 40%); }
+        .login-box { background: var(--panel); backdrop-filter: blur(20px); padding: 50px 40px; border-radius: 24px; box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 0 1px var(--border); width: 100%; max-width: 420px; text-align: center; animation: fadeIn 0.8s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .logo-icon { font-size: 48px; margin-bottom: 15px; display: inline-block; filter: drop-shadow(0 0 10px var(--primary)); }
         h2 { color: var(--text); margin-bottom: 10px; font-weight: 900; font-size: 28px; letter-spacing: -0.5px; }
         p.subtitle { color: var(--muted); margin-bottom: 35px; font-size: 15px; font-weight: 600; }
         .input-group { margin-bottom: 20px; text-align: right; position: relative; }
         label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; font-weight: 700; }
-        input { 
-            width: 100%; padding: 16px; background: rgba(0,0,0,0.3); 
-            border: 1px solid #334155; border-radius: 12px; color: white; 
-            outline: none; transition: all 0.3s; font-family: 'Cairo'; font-size: 15px; 
-        }
+        input { width: 100%; padding: 16px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 12px; color: white; outline: none; transition: all 0.3s; font-family: 'Cairo'; font-size: 15px; }
         input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); }
-        button { 
-            width: 100%; padding: 16px; background: var(--primary); color: #000; 
-            border: none; border-radius: 12px; font-size: 16px; font-weight: 900; 
-            cursor: pointer; transition: all 0.3s; margin-top: 10px; font-family: 'Cairo'; 
-            text-transform: uppercase; letter-spacing: 1px;
-        }
+        button { width: 100%; padding: 16px; background: var(--primary); color: #000; border: none; border-radius: 12px; font-size: 16px; font-weight: 900; cursor: pointer; transition: all 0.3s; margin-top: 10px; font-family: 'Cairo'; text-transform: uppercase; letter-spacing: 1px; }
         button:hover { background: var(--primary-hover); box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); transform: translateY(-2px); }
         .error { color: var(--danger); background: rgba(244, 63, 94, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(244, 63, 94, 0.3); }
     </style>
@@ -185,58 +143,24 @@ DASHBOARD_TEMPLATE = """
     <title>As3ad Platform | Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { 
-            --bg: #050810; 
-            --panel: #0f172a; 
-            --panel-light: #1e293b;
-            --primary: #00f0ff; 
-            --success: #10b981; 
-            --danger: #f43f5e; 
-            --warning: #f59e0b;
-            --text: #e2e8f0; 
-            --muted: #64748b; 
-            --border: #1e293b; 
-        }
+        :root { --bg: #050810; --panel: #0f172a; --panel-light: #1e293b; --primary: #00f0ff; --success: #10b981; --danger: #f43f5e; --warning: #f59e0b; --text: #e2e8f0; --muted: #64748b; --border: #1e293b; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
         body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        
-        .sidebar { 
-            width: 280px; background: var(--panel); 
-            border-left: 1px solid var(--border); display: flex; flex-direction: column; 
-            box-shadow: 10px 0 30px rgba(0,0,0,0.3); z-index: 10;
-        }
+        .sidebar { width: 280px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 10px 0 30px rgba(0,0,0,0.3); z-index: 10; }
         .brand { padding: 30px 20px; font-size: 24px; font-weight: 900; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); color: var(--text); }
         .brand-icon { color: var(--primary); font-size: 28px; filter: drop-shadow(0 0 8px var(--primary)); }
         .nav-menu { padding: 20px 15px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-        .nav-item { 
-            padding: 16px 20px; border-radius: 12px; cursor: pointer; 
-            display: flex; align-items: center; gap: 15px; font-weight: 700; 
-            color: var(--muted); transition: all 0.3s; border: 1px solid transparent;
-        }
+        .nav-item { padding: 16px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-weight: 700; color: var(--muted); transition: all 0.3s; border: 1px solid transparent; }
         .nav-item:hover { background: rgba(0, 240, 255, 0.05); color: var(--text); }
-        .nav-item.active { 
-            background: rgba(0, 240, 255, 0.1); color: var(--primary); 
-            border: 1px solid rgba(0, 240, 255, 0.2); box-shadow: 0 0 15px rgba(0,240,255,0.1); 
-        }
-        .logout-btn { 
-            padding: 20px; border-top: 1px solid var(--border); 
-            color: var(--danger); text-decoration: none; font-weight: 900; 
-            display: flex; justify-content: center; transition: 0.3s; 
-        }
+        .nav-item.active { background: rgba(0, 240, 255, 0.1); color: var(--primary); border: 1px solid rgba(0, 240, 255, 0.2); box-shadow: 0 0 15px rgba(0,240,255,0.1); }
+        .logout-btn { padding: 20px; border-top: 1px solid var(--border); color: var(--danger); text-decoration: none; font-weight: 900; display: flex; justify-content: center; transition: 0.3s; }
         .logout-btn:hover { background: rgba(244, 63, 94, 0.1); color: #ff6b6b; }
-
         .main-content { flex: 1; overflow-y: auto; padding: 40px; display: none; }
         .main-content.active { display: block; animation: slideUp 0.5s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
         .header-title { font-size: 28px; font-weight: 900; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
-        
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 40px; }
-        .stat-card { 
-            background: var(--panel-light); border: 1px solid var(--border); 
-            border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; 
-            transition: transform 0.3s;
-        }
+        .stat-card { background: var(--panel-light); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; align-items: center; gap: 20px; transition: transform 0.3s; }
         .stat-card:hover { transform: translateY(-5px); }
         .stat-icon { width: 65px; height: 65px; border-radius: 16px; display: flex; justify-content: center; align-items: center; font-size: 28px; }
         .stat-icon.total { background: rgba(0, 240, 255, 0.1); color: var(--primary); border: 1px solid rgba(0,240,255,0.2); }
@@ -244,30 +168,15 @@ DASHBOARD_TEMPLATE = """
         .stat-icon.invalid { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid rgba(244,63,94,0.2); }
         .stat-info h4 { color: var(--muted); font-size: 14px; margin-bottom: 8px; font-weight: 700; }
         .stat-info span { font-size: 32px; font-weight: 900; color: var(--text); }
-
         .content-grid { display: grid; grid-template-columns: 380px 1fr; gap: 30px; }
-        .panel { 
-            background: var(--panel); border: 1px solid var(--border); 
-            border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
         .panel-title { font-size: 20px; font-weight: 900; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-        
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 10px; font-size: 14px; color: var(--muted); font-weight: 700; }
-        select, input, textarea { 
-            width: 100%; padding: 14px; background: rgba(0,0,0,0.3); 
-            border: 1px solid #334155; border-radius: 12px; color: white; 
-            outline: none; font-family: 'Cairo'; font-size: 15px; transition: 0.3s;
-        }
+        select, input, textarea { width: 100%; padding: 14px; background: rgba(0,0,0,0.3); border: 1px solid #334155; border-radius: 12px; color: white; outline: none; font-family: 'Cairo'; font-size: 15px; transition: 0.3s; }
         select:focus, input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0,240,255,0.1); }
         textarea { resize: vertical; min-height: 120px; }
-        
-        .btn { 
-            width: 100%; padding: 16px; border: none; border-radius: 12px; 
-            font-weight: 900; cursor: pointer; font-family: 'Cairo'; font-size: 16px; 
-            display: flex; justify-content: center; align-items: center; gap: 10px; 
-            margin-top: 10px; transition: 0.3s; 
-        }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; font-family: 'Cairo'; font-size: 16px; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; transition: 0.3s; }
         .btn-primary { background: var(--primary); color: #000; }
         .btn-primary:hover { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); transform: translateY(-2px); }
         .btn-success { background: var(--success); color: white; }
@@ -277,12 +186,7 @@ DASHBOARD_TEMPLATE = """
         .btn-danger { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; }
         .btn:disabled { background: #1e293b; color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
-
-        .terminal-panel { 
-            background: #000000; border: 1px solid var(--border); 
-            border-radius: 20px; display: flex; flex-direction: column; height: 600px; 
-            overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
-        }
+        .terminal-panel { background: #000000; border: 1px solid var(--border); border-radius: 20px; display: flex; flex-direction: column; height: 600px; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); }
         .terminal-header { background: var(--panel-light); padding: 15px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
         .dot { width: 12px; height: 12px; border-radius: 50%; }
         .dot.red { background: #ef4444; } .dot.yellow { background: #f59e0b; } .dot.green { background: #10b981; }
@@ -293,17 +197,10 @@ DASHBOARD_TEMPLATE = """
         .log-success { color: var(--success); background: rgba(16, 185, 129, 0.05); border-left: 3px solid var(--success); }
         .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.05); border-left: 3px solid var(--danger); }
         .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.05); border-left: 3px solid #f59e0b; }
-
-        .progress-container { width: 100%; background: #000; border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 24px; overflow: hidden; position: relative; }
-        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--primary); }
-        .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; color: #fff; }
-
-        /* Export Section */
         .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .export-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; }
         .export-card h4 { font-size: 18px; margin-bottom: 10px; color: var(--primary); }
         .export-card p { color: var(--muted); font-size: 13px; margin-bottom: 15px; line-height: 1.6; }
-
         @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } .export-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             body { flex-direction: column; }
@@ -327,7 +224,6 @@ DASHBOARD_TEMPLATE = """
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
     </div>
 
-    <!-- WhatsApp Section -->
     <div class="main-content active" id="wa-section">
         <div class="header-title">
             <span>منصة فحص أرقام الواتساب</span>
@@ -366,14 +262,13 @@ DASHBOARD_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Export Section -->
     <div class="main-content" id="export-section">
         <div class="header-title">تصدير جهات الاتصال</div>
         <div class="export-grid">
             <div class="export-card">
                 <div>
                     <h4>📇 استيراد كجهات اتصال (VCF)</h4>
-                    <p>قم بتحميل الأرقام كملف VCF (vCard) لاستيرادها مباشرة إلى جهات اتصال هاتفك. سيتم تسمية كل جهة اتصال باسم الدولة (مثلاً: WA-Kuwait-5555).</p>
+                    <p>قم بتحميل الأرقام كملف VCF (vCard) لاستيرادها مباشرة إلى جهات اتصال هاتفك. سيتم تسمية كل جهة اتصال برقم تصاعدي (WA-1, WA-2, ...).</p>
                 </div>
                 <button onclick="downloadVCF()" class="btn btn-primary">⬇️ تحميل ملف VCF</button>
             </div>
@@ -387,7 +282,6 @@ DASHBOARD_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Settings Section -->
     <div class="main-content" id="settings-section">
         <div class="header-title">إعدادات المنصة</div>
         <div class="panel" style="max-width: 600px; margin: 0 auto;">
@@ -396,58 +290,36 @@ DASHBOARD_TEMPLATE = """
                 يمكنك تغيير المفاتيح هنا مباشرة. <br>
                 <strong style="color: var(--danger);">ملاحظة:</strong> التغيير هنا ساري المفعول حتى يتم إعادة تشغيل السيرفر.
             </p>
-            
             <div class="form-group">
                 <label>Apify API Token</label>
                 <input type="text" id="apifyTokenInput" placeholder="apify_api_..." value="{{ apify_token }}">
             </div>
-            
             <button class="btn btn-primary" onclick="saveSettings()" id="saveBtn">💾 حفظ المفاتيح</button>
         </div>
     </div>
 
     <script>
         let pollingInterval = null;
-
         function switchTab(tab) {
             document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
-            if(tab === 'wa') {
-                document.getElementById('wa-section').classList.add('active');
-                document.getElementById('nav-wa').classList.add('active');
-            } else if(tab === 'export') {
-                document.getElementById('export-section').classList.add('active');
-                document.getElementById('nav-export').classList.add('active');
-            } else if(tab === 'settings') {
-                document.getElementById('settings-section').classList.add('active');
-                document.getElementById('nav-settings').classList.add('active');
-            }
+            if(tab === 'wa') { document.getElementById('wa-section').classList.add('active'); document.getElementById('nav-wa').classList.add('active'); }
+            else if(tab === 'export') { document.getElementById('export-section').classList.add('active'); document.getElementById('nav-export').classList.add('active'); }
+            else if(tab === 'settings') { document.getElementById('settings-section').classList.add('active'); document.getElementById('nav-settings').classList.add('active'); }
         }
-
         async function saveSettings() {
             const apifyToken = document.getElementById('apifyTokenInput').value;
             const btn = document.getElementById('saveBtn');
             btn.disabled = true; btn.innerHTML = `⏳ جاري الحفظ...`;
-            
-            const res = await fetch('/api/save-settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ apify_token: apifyToken })
-            });
-            
-            if (res.ok) alert("تم حفظ الإعدادات بنجاح.");
-            else alert("حدث خطأ أثناء الحفظ.");
-            
+            const res = await fetch('/api/save-settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ apify_token: apifyToken }) });
+            if (res.ok) alert("تم حفظ الإعدادات بنجاح."); else alert("حدث خطأ أثناء الحفظ.");
             btn.disabled = false; btn.innerHTML = `💾 حفظ المفاتيح`;
         }
-
         async function resetHistory() {
             if (!confirm("هل أنت متأكد من مسح سجل الأرقام؟")) return;
             const res = await fetch('/api/reset-history', { method: 'POST' });
             if (res.ok) { alert("تم مسح السجل بنجاح."); location.reload(); }
         }
-
         async function generateNumbers() {
             const country = document.getElementById('country').value;
             const count = document.getElementById('count').value;
@@ -459,7 +331,6 @@ DASHBOARD_TEMPLATE = """
             btn.disabled = false; btn.innerHTML = `✨ توليد الأرقام`;
             addLog(`[+] تم توليد ${data.count} رقم جديد.`, 'log-success');
         }
-
         async function startChecking() {
             const specific = document.getElementById('specific').value;
             const btn = document.getElementById('checkBtn');
@@ -471,7 +342,6 @@ DASHBOARD_TEMPLATE = """
             const res = await fetch('/api/check', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({specific}) });
             if (res.ok && !pollingInterval) { pollingInterval = setInterval(pollStatus, 1500); }
         }
-
         async function pollStatus() {
             const res = await fetch('/api/status');
             const data = await res.json();
@@ -497,7 +367,6 @@ DASHBOARD_TEMPLATE = """
                 btn.disabled = false; btn.innerHTML = `🚀 بدء الفحص`;
             }
         }
-
         function addLog(text, className, scroll = true) {
             const box = document.getElementById('logsBox');
             const div = document.createElement('div');
@@ -505,7 +374,6 @@ DASHBOARD_TEMPLATE = """
             box.appendChild(div);
             if (scroll) box.scrollTop = box.scrollHeight;
         }
-
         function downloadTXT() { window.location.href = '/api/download-txt'; }
         function downloadVCF() { window.location.href = '/api/download-vcf'; }
     </script>
@@ -513,25 +381,24 @@ DASHBOARD_TEMPLATE = """
 </html>
 """
 
-# --- الوظائف الأساسية ---
-
 def generate_numbers_func(country, count):
     checked_history = load_set(CHECKED_FILE)
+    generated_history = load_set(GENERATED_FILE)
+    existing = checked_history | generated_history
     config = COUNTRIES[country]
     numbers = []
     attempts = 0
-    max_attempts = count * 20 
-    
+    max_attempts = count * 50
     while len(numbers) < count and attempts < max_attempts:
         prefix = random.choice(config["prefixes"])
         rest_length = config["length"] - len(prefix)
         rest = "".join(random.choices(string.digits, k=rest_length))
         num = f"{config['code']}{prefix}{rest}"
-        
-        if num not in checked_history and num not in numbers:
+        if num not in existing and num not in numbers:
             numbers.append(num)
         attempts += 1
-        
+    if numbers:
+        append_to_file(GENERATED_FILE, numbers)
     return numbers
 
 def process_apify(numbers):
@@ -540,50 +407,37 @@ def process_apify(numbers):
     if not apify_token:
         logs.append("❌ خطأ: لم يتم تعيين APIFY_API_TOKEN.")
         current_status = "idle"; return
-    
     logs.append(f"[*] جاري إرسال {len(numbers)} رقم إلى محرك الفحص...")
-    
     chunk_size = 20
     chunks = [numbers[i:i + chunk_size] for i in range(0, len(numbers), chunk_size)]
-    
     for idx, chunk in enumerate(chunks):
         logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
-        
         url = f"https://api.apify.com/v2/acts/apivault_labs~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
         payload = {"phoneNumbers": chunk}
-        
         try:
             response = requests.post(url, json=payload, timeout=120)
             raw_preview = response.text[:500] if response.text else "(empty)"
-            
             if response.status_code in [200, 201]:
                 try:
                     data = response.json()
                 except json.JSONDecodeError:
                     logs.append(f"❌ الدفعة {idx+1}: الرد ليس JSON.")
                     continue
-                
                 if not data or (isinstance(data, dict) and "error" in data):
                     logs.append(f"❌ الدفعة {idx+1}: استجابة غير صالحة: {raw_preview}")
                     continue
-                
                 processed = 0
                 current_chunk_checked = []
                 current_chunk_valid = []
-                
                 for item in data:
                     if not isinstance(item, dict): continue
-                    
                     phone = item.get("input") or item.get("e164") or item.get("phone")
                     has_wa = item.get("whatsapp")
-                    
                     if "summary" in item and not phone: continue
                     if phone is None: continue
-                    
                     processed += 1
                     stats["total"] += 1
                     current_chunk_checked.append(phone)
-                    
                     if has_wa:
                         logs.append(f"✅ مسجل: {phone}")
                         valid_numbers.append(phone)
@@ -592,33 +446,22 @@ def process_apify(numbers):
                     else:
                         logs.append(f"❌ غير مسجل: {phone}")
                         stats["invalid"] += 1
-                
                 if current_chunk_checked: append_to_file(CHECKED_FILE, current_chunk_checked)
                 if current_chunk_valid: append_to_file(VALID_FILE, current_chunk_valid)
-                    
                 if processed == 0:
                     logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل.")
             else:
                 logs.append(f"❌ الدفعة {idx+1} (كود {response.status_code}): {raw_preview}")
-                
         except Exception as e:
             logs.append(f"❌ خطأ في الدفعة {idx+1}: {str(e)[:150]}")
-            
         time.sleep(2)
-        
     logs.append(f"--- اكتملت العملية. تم العثور على {stats['valid']} رقم مسجل ---")
     current_status = "idle"
-
-# --- مسارات Flask ---
 
 @app.route('/')
 def index():
     if not session.get('logged_in'): return redirect(url_for('login'))
-    return render_template_string(
-        DASHBOARD_TEMPLATE, 
-        countries=COUNTRIES,
-        apify_token=load_settings().get("APIFY_TOKEN", "")
-    )
+    return render_template_string(DASHBOARD_TEMPLATE, countries=COUNTRIES, apify_token=load_settings().get("APIFY_TOKEN", ""))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -638,14 +481,12 @@ def logout():
 @app.route('/api/save-settings', methods=['POST'])
 def save_settings_api():
     data = request.json
-    save_settings({
-        "APIFY_TOKEN": data.get("apify_token", "")
-    })
+    save_settings({"APIFY_TOKEN": data.get("apify_token", "")})
     return {"status": "success"}
 
 @app.route('/api/reset-history', methods=['POST'])
 def reset_history():
-    for f in [CHECKED_FILE, VALID_FILE]:
+    for f in [CHECKED_FILE, VALID_FILE, GENERATED_FILE, MESSAGED_FILE]:
         if os.path.exists(f): os.remove(f)
     return {"status": "success"}
 
@@ -656,7 +497,7 @@ def generate_api():
     country = data.get('country'); count = int(data.get('count', 10))
     generated_numbers = generate_numbers_func(country, count)
     logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}
-    logs.append(f"[*] تم توليد {len(generated_numbers)} رقم جديد لدولة {COUNTRIES[country]['ar']} (تم تخطي الأرقام المفحوصة سابقاً).")
+    logs.append(f"[*] تم توليد {len(generated_numbers)} رقم جديد لدولة {COUNTRIES[country]['ar']} (تم تخطي الأرقام المولدة والمفحوصة سابقاً).")
     return {"count": len(generated_numbers)}
 
 @app.route('/api/check', methods=['POST'])
@@ -689,13 +530,8 @@ def download_txt():
 def download_vcf():
     valid_all = load_set(VALID_FILE)
     if not valid_all: return "لا توجد أرقام ناجحة.", 404
-    
     vcf_content = generate_vcf(valid_all)
-    return Response(
-        vcf_content, 
-        mimetype="text/vcard", 
-        headers={"Content-Disposition": "attachment;filename=whatsapp_contacts.vcf"}
-    )
+    return Response(vcf_content, mimetype="text/vcard", headers={"Content-Disposition": "attachment;filename=whatsapp_contacts.vcf"})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
