@@ -6,6 +6,7 @@ import requests
 import io
 import time
 import json
+from datetime import datetime
 from flask import Flask, request, render_template_string, session, redirect, url_for, Response, jsonify
 
 app = Flask(__name__)
@@ -71,6 +72,43 @@ def append_to_file(filename, items):
     with open(filename, "a", encoding="utf-8") as f:
         for item in items:
             f.write(item + "\n")
+
+# --- توليد ملف VCF مع اسم الدولة ---
+def get_country_from_number(number):
+    for country, data in COUNTRIES.items():
+        if number.startswith(data["code"]):
+            return country
+    return "Unknown"
+
+def generate_vcf(valid_numbers_set):
+    lines = []
+    # عدّاد لكل دولة على حدة
+    country_counters = {}
+    
+    for number in sorted(valid_numbers_set):
+        clean = number.strip().replace(" ", "").replace("-", "")
+        if not clean.startswith("+"):
+            clean = "+" + clean
+        
+        country_key = get_country_from_number(clean)
+        country_ar = COUNTRIES.get(country_key, {}).get("ar", country_key)
+        
+        # زيادة العداد حسب الدولة
+        country_counters[country_key] = country_counters.get(country_key, 0) + 1
+        seq = country_counters[country_key]
+        
+        # الاسم النهائي: الكويت 1 ، السعودية 2 ، إلخ
+        contact_name = f"{country_ar} {seq}"
+        
+        lines.append("BEGIN:VCARD")
+        lines.append("VERSION:3.0")
+        lines.append(f"FN:{contact_name}")
+        lines.append(f"N:{contact_name};;;;")
+        lines.append(f"TEL;TYPE=CELL,VOICE:{clean}")
+        lines.append(f"NOTE:Country: {country_ar} | Validated via As3ad Platform on {datetime.now().strftime('%Y-%m-%d')}")
+        lines.append("END:VCARD")
+    
+    return "\r\n".join(lines) + "\r\n"
 
 # --- القوالب (Templates) ---
 
@@ -163,6 +201,7 @@ DASHBOARD_TEMPLATE = """
             --primary: #00f0ff; 
             --success: #10b981; 
             --danger: #f43f5e; 
+            --warning: #f59e0b;
             --text: #e2e8f0; 
             --muted: #64748b; 
             --border: #1e293b; 
@@ -170,7 +209,6 @@ DASHBOARD_TEMPLATE = """
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
         body { background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
-        /* Sidebar */
         .sidebar { 
             width: 280px; background: var(--panel); 
             border-left: 1px solid var(--border); display: flex; flex-direction: column; 
@@ -196,14 +234,12 @@ DASHBOARD_TEMPLATE = """
         }
         .logout-btn:hover { background: rgba(244, 63, 94, 0.1); color: #ff6b6b; }
 
-        /* Main Content */
         .main-content { flex: 1; overflow-y: auto; padding: 40px; display: none; }
         .main-content.active { display: block; animation: slideUp 0.5s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         .header-title { font-size: 28px; font-weight: 900; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
         
-        /* Stats Grid */
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 40px; }
         .stat-card { 
             background: var(--panel-light); border: 1px solid var(--border); 
@@ -218,7 +254,6 @@ DASHBOARD_TEMPLATE = """
         .stat-info h4 { color: var(--muted); font-size: 14px; margin-bottom: 8px; font-weight: 700; }
         .stat-info span { font-size: 32px; font-weight: 900; color: var(--text); }
 
-        /* Content Layout */
         .content-grid { display: grid; grid-template-columns: 380px 1fr; gap: 30px; }
         .panel { 
             background: var(--panel); border: 1px solid var(--border); 
@@ -246,11 +281,12 @@ DASHBOARD_TEMPLATE = """
         .btn-primary:hover { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); transform: translateY(-2px); }
         .btn-success { background: var(--success); color: white; }
         .btn-success:hover { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); transform: translateY(-2px); }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-warning:hover { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); transform: translateY(-2px); }
         .btn-danger { background: rgba(244, 63, 94, 0.1); color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; }
         .btn:disabled { background: #1e293b; color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
-        /* Terminal Panel */
         .terminal-panel { 
             background: #000000; border: 1px solid var(--border); 
             border-radius: 20px; display: flex; flex-direction: column; height: 600px; 
@@ -267,19 +303,24 @@ DASHBOARD_TEMPLATE = """
         .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.05); border-left: 3px solid var(--danger); }
         .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.05); border-left: 3px solid #f59e0b; }
 
-        /* Progress Bar */
         .progress-container { width: 100%; background: #000; border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 24px; overflow: hidden; position: relative; }
         .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--primary); }
         .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; color: #fff; }
 
-        @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
+        /* Export Section */
+        .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .export-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; }
+        .export-card h4 { font-size: 18px; margin-bottom: 10px; color: var(--primary); }
+        .export-card p { color: var(--muted); font-size: 13px; margin-bottom: 15px; line-height: 1.6; }
+
+        @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } .export-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0 10px; height: 70px; border-left: none; border-bottom: 1px solid var(--border); }
-            .brand { padding: 10px; font-size: 20px; border-bottom: none; }
+            .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0 10px; height: 70px; border-left: none; border-bottom: 1px solid var(--border); overflow-x: auto; }
+            .brand { padding: 10px; font-size: 20px; border-bottom: none; display: none; }
             .nav-menu { flex-direction: row; padding: 0; gap: 5px; }
-            .nav-item { padding: 10px; font-size: 14px; }
-            .logout-btn { padding: 10px; border-top: none; font-size: 14px; }
+            .nav-item { padding: 10px; font-size: 13px; white-space: nowrap; }
+            .logout-btn { padding: 10px; border-top: none; font-size: 14px; white-space: nowrap; }
             .main-content { padding: 20px; }
         }
     </style>
@@ -289,7 +330,7 @@ DASHBOARD_TEMPLATE = """
         <div class="brand"><span class="brand-icon">⚡</span> As3ad</div>
         <div class="nav-menu">
             <div class="nav-item active" id="nav-wa" onclick="switchTab('wa')">📱 فاحص واتساب</div>
-            <div class="nav-item" id="nav-send" onclick="switchTab('send')">📨 مرسل الرسائل</div>
+            <div class="nav-item" id="nav-export" onclick="switchTab('export')">📤 تصدير الأرقام</div>
             <div class="nav-item" id="nav-settings" onclick="switchTab('settings')">⚙️ الإعدادات</div>
         </div>
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
@@ -328,39 +369,29 @@ DASHBOARD_TEMPLATE = """
                 <button class="btn btn-success" onclick="startChecking()" id="checkBtn" disabled>🚀 بدء الفحص</button>
             </div>
             <div class="terminal-panel">
-                <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@validator: ~/logs</span></div>
+                <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@validator: \~/logs</span></div>
                 <div class="terminal-body" id="logsBox"><div class="log-line log-info">> System initialized. Ready for commands...</div></div>
             </div>
         </div>
-        <div style="background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 25px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-            <div><h3 style="font-size: 18px; margin-bottom: 5px; color: var(--text);">تصدير النتائج</h3><p style="color: var(--muted); font-size: 14px;">تحميل كل الأرقام الصالحة (بدون تكرار).</p></div>
-            <button onclick="downloadResults()" class="btn btn-primary" style="width: auto; padding: 12px 25px; margin: 0;">⬇️ تحميل الأرقام الناجحة (.txt)</button>
-        </div>
     </div>
 
-    <!-- Sender Section -->
-    <div class="main-content" id="send-section">
-        <div class="header-title">مرسل الرسائل الجماعية</div>
-        <div class="content-grid">
-            <div class="panel">
-                <div class="panel-title">📝 كتابة الرسالة</div>
-                <p style="font-size: 15px; color: var(--muted); margin-bottom: 20px; background: rgba(0,240,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(0,240,255,0.1);">
-                    الأرقام الجاهزة للإرسال: <strong id="validNumbersCount" style="color: var(--primary); font-size: 20px;">0</strong>
-                </p>
-                <div class="form-group">
-                    <label>نص الرسالة</label>
-                    <textarea id="messageText" placeholder="اكتب رسالتك هنا..."></textarea>
+    <!-- Export Section -->
+    <div class="main-content" id="export-section">
+        <div class="header-title">تصدير جهات الاتصال</div>
+        <div class="export-grid">
+            <div class="export-card">
+                <div>
+                    <h4>📇 استيراد كجهات اتصال (VCF)</h4>
+                    <p>قم بتحميل الأرقام كملف VCF (vCard) لاستيرادها مباشرة إلى جهات اتصال هاتفك. سيتم تسمية كل جهة اتصال باسم الدولة (مثلاً: الكويت 1، السعودية 2).</p>
                 </div>
-                <button class="btn btn-primary" onclick="startSending()" id="sendBtn">🚀 بدء الإرسال</button>
-                <div class="progress-container">
-                    <div class="progress-bar" id="sendProgress"></div>
-                    <div class="progress-text" id="sendProgressText">0%</div>
-                </div>
-                <p style="text-align: center; font-size: 15px; font-weight: bold;" id="sendStats">0 / 0</p>
+                <button onclick="downloadVCF()" class="btn btn-primary">⬇️ تحميل ملف VCF</button>
             </div>
-            <div class="terminal-panel">
-                <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@sender: ~/logs</span></div>
-                <div class="terminal-body" id="sendLogsBox"><div class="log-line log-info">> Ready to send messages...</div></div>
+            <div class="export-card">
+                <div>
+                    <h4>📄 تحميل كملف نصي (TXT)</h4>
+                    <p>قم بتحميل الأرقام كملف نصي بسيط يحتوي على الأرقام فقط بصيغة دولية. مناسب للنسخ واللصق أو للاستخدام في برامج أخرى.</p>
+                </div>
+                <button onclick="downloadTXT()" class="btn btn-warning">⬇️ تحميل ملف TXT</button>
             </div>
         </div>
     </div>
@@ -380,20 +411,12 @@ DASHBOARD_TEMPLATE = """
                 <input type="text" id="apifyTokenInput" placeholder="apify_api_..." value="{{ apify_token }}">
             </div>
             
-            <hr style="border-color: var(--border); margin: 25px 0;">
-            
-            <div class="form-group">
-                <label>WasenderAPI Key</label>
-                <input type="text" id="wasenderKeyInput" placeholder="your_wasender_api_key" value="{{ wasender_key }}">
-            </div>
-            
             <button class="btn btn-primary" onclick="saveSettings()" id="saveBtn">💾 حفظ المفاتيح</button>
         </div>
     </div>
 
     <script>
         let pollingInterval = null;
-        let sendPolling = null;
 
         function switchTab(tab) {
             document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
@@ -402,10 +425,9 @@ DASHBOARD_TEMPLATE = """
             if(tab === 'wa') {
                 document.getElementById('wa-section').classList.add('active');
                 document.getElementById('nav-wa').classList.add('active');
-            } else if(tab === 'send') {
-                document.getElementById('send-section').classList.add('active');
-                document.getElementById('nav-send').classList.add('active');
-                checkValidNumbers();
+            } else if(tab === 'export') {
+                document.getElementById('export-section').classList.add('active');
+                document.getElementById('nav-export').classList.add('active');
             } else if(tab === 'settings') {
                 document.getElementById('settings-section').classList.add('active');
                 document.getElementById('nav-settings').classList.add('active');
@@ -414,15 +436,13 @@ DASHBOARD_TEMPLATE = """
 
         async function saveSettings() {
             const apifyToken = document.getElementById('apifyTokenInput').value;
-            const wasenderKey = document.getElementById('wasenderKeyInput').value;
-            
             const btn = document.getElementById('saveBtn');
             btn.disabled = true; btn.innerHTML = `⏳ جاري الحفظ...`;
             
             const res = await fetch('/api/save-settings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ apify_token: apifyToken, wasender_key: wasenderKey })
+                body: JSON.stringify({ apify_token: apifyToken })
             });
             
             if (res.ok) alert("تم حفظ الإعدادات بنجاح.");
@@ -494,56 +514,9 @@ DASHBOARD_TEMPLATE = """
             box.appendChild(div);
             if (scroll) box.scrollTop = box.scrollHeight;
         }
-        function downloadResults() { window.location.href = '/api/download'; }
 
-        async function checkValidNumbers() {
-            const res = await fetch('/api/valid-count');
-            const data = await res.json();
-            document.getElementById('validNumbersCount').innerText = data.count;
-        }
-
-        async function startSending() {
-            const msg = document.getElementById('messageText').value;
-            if (!msg) { alert("يرجى كتابة رسالة أولاً."); return; }
-            const btn = document.getElementById('sendBtn');
-            btn.disabled = true; btn.innerHTML = `⏳ جاري الإرسال...`;
-            document.getElementById('sendLogsBox').innerHTML = "";
-            const res = await fetch('/api/send-bulk', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg}) });
-            if (res.ok && !sendPolling) { sendPolling = setInterval(pollSendStatus, 2000); }
-            else { alert("حدث خطأ."); btn.disabled = false; btn.innerHTML = `🚀 بدء الإرسال`; }
-        }
-
-        async function pollSendStatus() {
-            const res = await fetch('/api/send-status');
-            const data = await res.json();
-            const percent = data.progress.total > 0 ? (data.progress.current / data.progress.total) * 100 : 0;
-            document.getElementById('sendProgress').style.width = percent + '%';
-            document.getElementById('sendProgressText').innerText = Math.round(percent) + '%';
-            document.getElementById('sendStats').innerText = `${data.progress.current} / ${data.progress.total} (نجح: ${data.progress.success} | فشل: ${data.progress.failed})`;
-            if (data.logs.length > 0) {
-                const box = document.getElementById('sendLogsBox'); box.innerHTML = "";
-                data.logs.forEach(log => {
-                    let cls = 'log-info';
-                    if (log.includes('✅')) cls = 'log-success';
-                    if (log.includes('❌')) cls = 'log-error';
-                    addLogSend(log, cls, false);
-                });
-                box.scrollTop = box.scrollHeight;
-            }
-            if (data.status === 'idle') {
-                clearInterval(sendPolling); sendPolling = null;
-                const btn = document.getElementById('sendBtn');
-                btn.disabled = false; btn.innerHTML = `🚀 بدء الإرسال`;
-            }
-        }
-
-        function addLogSend(text, className, scroll = true) {
-            const box = document.getElementById('sendLogsBox');
-            const div = document.createElement('div');
-            div.className = `log-line ${className}`; div.innerText = text;
-            box.appendChild(div);
-            if (scroll) box.scrollTop = box.scrollHeight;
-        }
+        function downloadTXT() { window.location.href = '/api/download-txt'; }
+        function downloadVCF() { window.location.href = '/api/download-vcf'; }
     </script>
 </body>
 </html>
@@ -585,7 +558,7 @@ def process_apify(numbers):
     for idx, chunk in enumerate(chunks):
         logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
         
-        url = f"https://api.apify.com/v2/acts/apivault_labs~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
+        url = f"https://api.apify.com/v2/acts/apivault_labs\~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
         payload = {"phoneNumbers": chunk}
         
         try:
@@ -645,69 +618,6 @@ def process_apify(numbers):
     logs.append(f"--- اكتملت العملية. تم العثور على {stats['valid']} رقم مسجل ---")
     current_status = "idle"
 
-def process_bulk_send(message):
-    global send_status, send_logs, send_progress
-    send_status = "running"
-    send_logs.clear()
-    
-    valid_all = load_set(VALID_FILE)
-    messaged_history = load_set(MESSAGED_FILE)
-    to_send = [num for num in valid_all if num not in messaged_history]
-    
-    send_progress = {"current": 0, "total": len(to_send), "success": 0, "failed": 0}
-    
-    wasender_key = get_wasender_key()
-
-    if not wasender_key:
-        send_logs.append("❌ خطأ: لم يتم تعيين WasenderAPI Key في الإعدادات.")
-        send_status = "idle"; return
-
-    if not to_send:
-        send_logs.append("⚠️ لا توجد أرقام جديدة لإرسالها.")
-        send_status = "idle"; return
-
-    send_logs.append(f"[*] بدء إرسال الرسائل إلى {len(to_send)} رقم جديد عبر WasenderAPI...")
-
-    url = "https://www.wasenderapi.com/api/send-message"
-    headers = {
-        "Authorization": f"Bearer {wasender_key}",
-        "Content-Type": "application/json"
-    }
-
-    for number in to_send:
-        formatted_number = number if number.startswith("+") else f"+{number}"
-        
-        send_logs.append(f"[*] جاري الإرسال إلى: {formatted_number}")
-        
-        payload = {
-            "to": formatted_number,
-            "text": message
-        }
-
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=20)
-            
-            if response.status_code in [200, 201]:
-                send_logs.append(f"✅ نجح: {formatted_number}")
-                send_progress["success"] += 1
-                append_to_file(MESSAGED_FILE, [number])
-            else:
-                error_msg = response.text[:100] if response.text else "Unknown error"
-                send_logs.append(f"❌ فشل: {formatted_number} (كود: {response.status_code}) - {error_msg}")
-                send_progress["failed"] += 1
-        except Exception as e:
-            send_logs.append(f"❌ خطأ: {formatted_number} ({str(e)[:50]})")
-            send_progress["failed"] += 1
-            
-        send_progress["current"] += 1
-        if send_progress["current"] % 10 == 0:
-            if len(send_logs) > 50: send_logs.pop(0)
-        
-        time.sleep(random.uniform(4, 9))
-
-    send_status = "idle"
-    send_logs.append(f"✅ اكتمل الإرسال. (نجح: {send_progress['success']} | فشل: {send_progress['failed']})")
-
 # --- مسارات Flask ---
 
 @app.route('/')
@@ -716,8 +626,7 @@ def index():
     return render_template_string(
         DASHBOARD_TEMPLATE, 
         countries=COUNTRIES,
-        apify_token=load_settings().get("APIFY_TOKEN", ""),
-        wasender_key=load_settings().get("WASENDER_API_KEY", "")
+        apify_token=load_settings().get("APIFY_TOKEN", "")
     )
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -739,14 +648,13 @@ def logout():
 def save_settings_api():
     data = request.json
     save_settings({
-        "APIFY_TOKEN": data.get("apify_token", ""),
-        "WASENDER_API_KEY": data.get("wasender_key", "")
+        "APIFY_TOKEN": data.get("apify_token", "")
     })
     return {"status": "success"}
 
 @app.route('/api/reset-history', methods=['POST'])
 def reset_history():
-    for f in [CHECKED_FILE, VALID_FILE, MESSAGED_FILE]:
+    for f in [CHECKED_FILE, VALID_FILE]:
         if os.path.exists(f): os.remove(f)
     return {"status": "success"}
 
@@ -779,35 +687,24 @@ def check_api():
 def status_api():
     return {"status": current_status, "logs": logs, "stats": stats}
 
-@app.route('/api/download')
-def download_api():
+@app.route('/api/download-txt')
+def download_txt():
     valid_all = load_set(VALID_FILE)
     if not valid_all: return "لا توجد أرقام ناجحة.", 404
     output = "\n".join(valid_all)
     return Response(output, mimetype="text/plain", headers={"Content-Disposition": "attachment;filename=all_valid_numbers.txt"})
 
-@app.route('/api/valid-count')
-def valid_count():
+@app.route('/api/download-vcf')
+def download_vcf():
     valid_all = load_set(VALID_FILE)
-    messaged = load_set(MESSAGED_FILE)
-    return {"count": len(valid_all - messaged)}
-
-@app.route('/api/send-bulk', methods=['POST'])
-def send_bulk_api():
-    global send_status
-    data = request.json
-    message = data.get('message', '').strip()
-    if not message: return {"error": "الرسالة فارغة"}, 400
-    if send_status == "running": return {"error": "قيد التشغيل"}, 400
-    valid_all = load_set(VALID_FILE)
-    messaged = load_set(MESSAGED_FILE)
-    if not (valid_all - messaged): return {"error": "لا توجد أرقام جديدة للإرسال."}, 400
-    threading.Thread(target=process_bulk_send, args=(message,)).start()
-    return {"status": "started"}
-
-@app.route('/api/send-status')
-def send_status_api():
-    return {"status": send_status, "progress": send_progress, "logs": send_logs}
+    if not valid_all: return "لا توجد أرقام ناجحة.", 404
+    
+    vcf_content = generate_vcf(valid_all)
+    return Response(
+        vcf_content, 
+        mimetype="text/vcard", 
+        headers={"Content-Disposition": "attachment;filename=whatsapp_contacts.vcf"}
+    )
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
