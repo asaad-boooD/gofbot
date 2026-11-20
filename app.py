@@ -3,29 +3,25 @@ import random
 import string
 import threading
 import requests
-import io
 import time
 import json
 from datetime import datetime
-from flask import Flask, request, render_template_string, session, redirect, url_for, Response, jsonify
+from flask import Flask, request, render_template_string, session, redirect, url_for, Response
 
 app = Flask(__name__)
 app.secret_key = "As3ad_Enterprise_Secret_2024"
 
-# ملفات الحفظ والإعدادات
 SETTINGS_FILE = "settings.json"
 CHECKED_FILE = "checked_history.txt"
 VALID_FILE = "valid_history.txt"
 MESSAGED_FILE = "messaged_history.txt"
 
-# --- حالة منصة الواتساب ---
 current_status = "idle"
 logs = []
 generated_numbers = []
 valid_numbers = []
 stats = {"total": 0, "valid": 0, "invalid": 0}
 
-# --- حالة مرسل الرسائل ---
 send_status = "idle"
 send_logs = []
 send_progress = {"current": 0, "total": 0, "success": 0, "failed": 0}
@@ -39,7 +35,6 @@ COUNTRIES = {
     "Oman": {"code": "+968", "length": 8, "prefixes": ["7", "9"], "ar": "عمان", "flag": "🇴🇲"},
 }
 
-# --- دوال الإعدادات ---
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -61,7 +56,6 @@ def get_apify_token():
 def get_wasender_key():
     return load_settings().get("WASENDER_API_KEY") or os.environ.get("WASENDER_API_KEY", "")
 
-# --- دوال الذاكرة ---
 def load_set(filename):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
@@ -73,7 +67,6 @@ def append_to_file(filename, items):
         for item in items:
             f.write(item + "\n")
 
-# --- توليد ملف VCF مع اسم الدولة ---
 def get_country_from_number(number):
     for country, data in COUNTRIES.items():
         if number.startswith(data["code"]):
@@ -82,7 +75,6 @@ def get_country_from_number(number):
 
 def generate_vcf(valid_numbers_set):
     lines = []
-    # عدّاد لكل دولة على حدة
     country_counters = {}
     
     for number in sorted(valid_numbers_set):
@@ -93,11 +85,9 @@ def generate_vcf(valid_numbers_set):
         country_key = get_country_from_number(clean)
         country_ar = COUNTRIES.get(country_key, {}).get("ar", country_key)
         
-        # زيادة العداد حسب الدولة
         country_counters[country_key] = country_counters.get(country_key, 0) + 1
         seq = country_counters[country_key]
         
-        # الاسم النهائي: الكويت 1 ، السعودية 2 ، إلخ
         contact_name = f"{country_ar} {seq}"
         
         lines.append("BEGIN:VCARD")
@@ -109,8 +99,6 @@ def generate_vcf(valid_numbers_set):
         lines.append("END:VCARD")
     
     return "\r\n".join(lines) + "\r\n"
-
-# --- القوالب (Templates) ---
 
 LOGIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -303,11 +291,6 @@ DASHBOARD_TEMPLATE = """
         .log-error { color: var(--danger); background: rgba(244, 63, 94, 0.05); border-left: 3px solid var(--danger); }
         .log-warn { color: #f59e0b; background: rgba(245, 158, 11, 0.05); border-left: 3px solid #f59e0b; }
 
-        .progress-container { width: 100%; background: #000; border-radius: 10px; margin: 20px 0; border: 1px solid var(--border); height: 24px; overflow: hidden; position: relative; }
-        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--primary); }
-        .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; color: #fff; }
-
-        /* Export Section */
         .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .export-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; }
         .export-card h4 { font-size: 18px; margin-bottom: 10px; color: var(--primary); }
@@ -336,7 +319,6 @@ DASHBOARD_TEMPLATE = """
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
     </div>
 
-    <!-- WhatsApp Section -->
     <div class="main-content active" id="wa-section">
         <div class="header-title">
             <span>منصة فحص أرقام الواتساب</span>
@@ -375,28 +357,26 @@ DASHBOARD_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Export Section -->
     <div class="main-content" id="export-section">
         <div class="header-title">تصدير جهات الاتصال</div>
         <div class="export-grid">
             <div class="export-card">
                 <div>
                     <h4>📇 استيراد كجهات اتصال (VCF)</h4>
-                    <p>قم بتحميل الأرقام كملف VCF (vCard) لاستيرادها مباشرة إلى جهات اتصال هاتفك. سيتم تسمية كل جهة اتصال باسم الدولة (مثلاً: الكويت 1، السعودية 2).</p>
+                    <p>قم بتحميل الأرقام كملف VCF. سيتم تسمية كل جهة اتصال باسم الدولة (مثلاً: الكويت 1، السعودية 2).</p>
                 </div>
                 <button onclick="downloadVCF()" class="btn btn-primary">⬇️ تحميل ملف VCF</button>
             </div>
             <div class="export-card">
                 <div>
                     <h4>📄 تحميل كملف نصي (TXT)</h4>
-                    <p>قم بتحميل الأرقام كملف نصي بسيط يحتوي على الأرقام فقط بصيغة دولية. مناسب للنسخ واللصق أو للاستخدام في برامج أخرى.</p>
+                    <p>قم بتحميل الأرقام كملف نصي بسيط يحتوي على الأرقام فقط بصيغة دولية.</p>
                 </div>
                 <button onclick="downloadTXT()" class="btn btn-warning">⬇️ تحميل ملف TXT</button>
             </div>
         </div>
     </div>
 
-    <!-- Settings Section -->
     <div class="main-content" id="settings-section">
         <div class="header-title">إعدادات المنصة</div>
         <div class="panel" style="max-width: 600px; margin: 0 auto;">
@@ -522,8 +502,6 @@ DASHBOARD_TEMPLATE = """
 </html>
 """
 
-# --- الوظائف الأساسية ---
-
 def generate_numbers_func(country, count):
     checked_history = load_set(CHECKED_FILE)
     config = COUNTRIES[country]
@@ -548,21 +526,23 @@ def process_apify(numbers):
     apify_token = get_apify_token()
     if not apify_token:
         logs.append("❌ خطأ: لم يتم تعيين APIFY_API_TOKEN.")
-        current_status = "idle"; return
+        current_status = "idle"
+        return
     
     logs.append(f"[*] جاري إرسال {len(numbers)} رقم إلى محرك الفحص...")
     
-    chunk_size = 20
+    chunk_size = 50
     chunks = [numbers[i:i + chunk_size] for i in range(0, len(numbers), chunk_size)]
     
     for idx, chunk in enumerate(chunks):
         logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
         
-        url = f"https://api.apify.com/v2/acts/apivault_labs\~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
-        payload = {"phoneNumbers": chunk}
+        # Actor الجديد: vero-api/whatsapp-number-checker
+        url = f"https://api.apify.com/v2/acts/vero-api\~whatsapp-number-checker/run-sync-get-dataset-items?token={apify_token}"
+        payload = {"numbers": chunk}
         
         try:
-            response = requests.post(url, json=payload, timeout=120)
+            response = requests.post(url, json=payload, timeout=180)
             raw_preview = response.text[:500] if response.text else "(empty)"
             
             if response.status_code in [200, 201]:
@@ -581,19 +561,26 @@ def process_apify(numbers):
                 current_chunk_valid = []
                 
                 for item in data:
-                    if not isinstance(item, dict): continue
+                    if not isinstance(item, dict):
+                        continue
                     
-                    phone = item.get("input") or item.get("e164") or item.get("phone")
-                    has_wa = item.get("whatsapp")
+                    # الحقول الجديدة من الـ Actor
+                    phone = item.get("input") or item.get("number")
+                    has_wa = item.get("hasWhatsApp")
                     
-                    if "summary" in item and not phone: continue
-                    if phone is None: continue
+                    if phone is None:
+                        continue
+                    
+                    # تنسيق الرقم
+                    phone = str(phone).strip()
+                    if not phone.startswith("+"):
+                        phone = "+" + phone.lstrip("0")
                     
                     processed += 1
                     stats["total"] += 1
                     current_chunk_checked.append(phone)
                     
-                    if has_wa:
+                    if has_wa is True:
                         logs.append(f"✅ مسجل: {phone}")
                         valid_numbers.append(phone)
                         current_chunk_valid.append(phone)
@@ -602,8 +589,10 @@ def process_apify(numbers):
                         logs.append(f"❌ غير مسجل: {phone}")
                         stats["invalid"] += 1
                 
-                if current_chunk_checked: append_to_file(CHECKED_FILE, current_chunk_checked)
-                if current_chunk_valid: append_to_file(VALID_FILE, current_chunk_valid)
+                if current_chunk_checked:
+                    append_to_file(CHECKED_FILE, current_chunk_checked)
+                if current_chunk_valid:
+                    append_to_file(VALID_FILE, current_chunk_valid)
                     
                 if processed == 0:
                     logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل.")
@@ -618,11 +607,10 @@ def process_apify(numbers):
     logs.append(f"--- اكتملت العملية. تم العثور على {stats['valid']} رقم مسجل ---")
     current_status = "idle"
 
-# --- مسارات Flask ---
-
 @app.route('/')
 def index():
-    if not session.get('logged_in'): return redirect(url_for('login'))
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
     return render_template_string(
         DASHBOARD_TEMPLATE, 
         countries=COUNTRIES,
@@ -636,7 +624,8 @@ def login():
         if request.form['username'] == 'As3ad' and request.form['password'] == 'As3ad':
             session['logged_in'] = True
             return redirect(url_for('index'))
-        else: error = "بيانات الدخول غير صحيحة."
+        else:
+            error = "بيانات الدخول غير صحيحة."
     return render_template_string(LOGIN_TEMPLATE, error=error)
 
 @app.route('/logout')
@@ -655,16 +644,19 @@ def save_settings_api():
 @app.route('/api/reset-history', methods=['POST'])
 def reset_history():
     for f in [CHECKED_FILE, VALID_FILE]:
-        if os.path.exists(f): os.remove(f)
+        if os.path.exists(f):
+            os.remove(f)
     return {"status": "success"}
 
 @app.route('/api/generate', methods=['POST'])
 def generate_api():
     global generated_numbers, logs, stats
     data = request.json
-    country = data.get('country'); count = int(data.get('count', 10))
+    country = data.get('country')
+    count = int(data.get('count', 10))
     generated_numbers = generate_numbers_func(country, count)
-    logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}
+    logs.clear()
+    stats = {"total": 0, "valid": 0, "invalid": 0}
     logs.append(f"[*] تم توليد {len(generated_numbers)} رقم جديد لدولة {COUNTRIES[country]['ar']} (تم تخطي الأرقام المفحوصة سابقاً).")
     return {"count": len(generated_numbers)}
 
@@ -673,13 +665,18 @@ def check_api():
     global current_status, logs, stats, valid_numbers
     data = request.json
     specific = data.get('specific', '').strip()
-    if current_status == "running": return {"error": "قيد التشغيل"}, 400
-    logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}; current_status = "running"
+    if current_status == "running":
+        return {"error": "قيد التشغيل"}, 400
+    logs.clear()
+    stats = {"total": 0, "valid": 0, "invalid": 0}
+    current_status = "running"
     valid_numbers.clear()
     if specific:
-        numbers = [specific]; logs.append(f"[>] فحص رقم محدد: {specific}")
+        numbers = [specific]
+        logs.append(f"[>] فحص رقم محدد: {specific}")
     else:
-        numbers = generated_numbers; logs.append(f"[>] فحص {len(numbers)} رقم...")
+        numbers = generated_numbers
+        logs.append(f"[>] فحص {len(numbers)} رقم...")
     threading.Thread(target=process_apify, args=(numbers,)).start()
     return {"status": "started"}
 
@@ -690,14 +687,16 @@ def status_api():
 @app.route('/api/download-txt')
 def download_txt():
     valid_all = load_set(VALID_FILE)
-    if not valid_all: return "لا توجد أرقام ناجحة.", 404
+    if not valid_all:
+        return "لا توجد أرقام ناجحة.", 404
     output = "\n".join(valid_all)
     return Response(output, mimetype="text/plain", headers={"Content-Disposition": "attachment;filename=all_valid_numbers.txt"})
 
 @app.route('/api/download-vcf')
 def download_vcf():
     valid_all = load_set(VALID_FILE)
-    if not valid_all: return "لا توجد أرقام ناجحة.", 404
+    if not valid_all:
+        return "لا توجد أرقام ناجحة.", 404
     
     vcf_content = generate_vcf(valid_all)
     return Response(
