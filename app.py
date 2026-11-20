@@ -113,7 +113,6 @@ def generate_vcf(valid_numbers_set):
 # --- القوالب (Templates) ---
 
 LOGIN_TEMPLATE = """
-<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -186,7 +185,6 @@ LOGIN_TEMPLATE = """
 """
 
 DASHBOARD_TEMPLATE = """
-<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -336,7 +334,6 @@ DASHBOARD_TEMPLATE = """
         <a href="/logout" class="logout-btn">تسجيل خروج</a>
     </div>
 
-    <!-- WhatsApp Section -->
     <div class="main-content active" id="wa-section">
         <div class="header-title">
             <span>منصة فحص أرقام الواتساب</span>
@@ -369,13 +366,12 @@ DASHBOARD_TEMPLATE = """
                 <button class="btn btn-success" onclick="startChecking()" id="checkBtn" disabled>🚀 بدء الفحص</button>
             </div>
             <div class="terminal-panel">
-                <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@validator: \~/logs</span></div>
+                <div class="terminal-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span class="terminal-title">as3ad@validator: ~/logs</span></div>
                 <div class="terminal-body" id="logsBox"><div class="log-line log-info">> System initialized. Ready for commands...</div></div>
             </div>
         </div>
     </div>
 
-    <!-- Export Section -->
     <div class="main-content" id="export-section">
         <div class="header-title">تصدير جهات الاتصال</div>
         <div class="export-grid">
@@ -396,7 +392,6 @@ DASHBOARD_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Settings Section -->
     <div class="main-content" id="settings-section">
         <div class="header-title">إعدادات المنصة</div>
         <div class="panel" style="max-width: 600px; margin: 0 auto;">
@@ -437,275 +432,4 @@ DASHBOARD_TEMPLATE = """
         async function saveSettings() {
             const apifyToken = document.getElementById('apifyTokenInput').value;
             const btn = document.getElementById('saveBtn');
-            btn.disabled = true; btn.innerHTML = `⏳ جاري الحفظ...`;
-            
-            const res = await fetch('/api/save-settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ apify_token: apifyToken })
-            });
-            
-            if (res.ok) alert("تم حفظ الإعدادات بنجاح.");
-            else alert("حدث خطأ أثناء الحفظ.");
-            
-            btn.disabled = false; btn.innerHTML = `💾 حفظ المفاتيح`;
-        }
-
-        async function resetHistory() {
-            if (!confirm("هل أنت متأكد من مسح سجل الأرقام؟")) return;
-            const res = await fetch('/api/reset-history', { method: 'POST' });
-            if (res.ok) { alert("تم مسح السجل بنجاح."); location.reload(); }
-        }
-
-        async function generateNumbers() {
-            const country = document.getElementById('country').value;
-            const count = document.getElementById('count').value;
-            const btn = document.getElementById('genBtn');
-            btn.disabled = true; btn.innerHTML = `⏳ جاري التوليد...`;
-            const res = await fetch('/api/generate', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({country, count}) });
-            const data = await res.json();
-            document.getElementById('checkBtn').disabled = false;
-            btn.disabled = false; btn.innerHTML = `✨ توليد الأرقام`;
-            addLog(`[+] تم توليد ${data.count} رقم جديد.`, 'log-success');
-        }
-
-        async function startChecking() {
-            const specific = document.getElementById('specific').value;
-            const btn = document.getElementById('checkBtn');
-            btn.disabled = true; btn.innerHTML = `⏳ جاري الفحص...`;
-            document.getElementById('logsBox').innerHTML = "";
-            document.getElementById('statTotal').innerText = "0";
-            document.getElementById('statValid').innerText = "0";
-            document.getElementById('statInvalid').innerText = "0";
-            const res = await fetch('/api/check', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({specific}) });
-            if (res.ok && !pollingInterval) { pollingInterval = setInterval(pollStatus, 1500); }
-        }
-
-        async function pollStatus() {
-            const res = await fetch('/api/status');
-            const data = await res.json();
-            if (data.stats) {
-                document.getElementById('statTotal').innerText = data.stats.total;
-                document.getElementById('statValid').innerText = data.stats.valid;
-                document.getElementById('statInvalid').innerText = data.stats.invalid;
-            }
-            if (data.logs.length > 0) {
-                const box = document.getElementById('logsBox'); box.innerHTML = "";
-                data.logs.forEach(log => {
-                    let cls = 'log-info';
-                    if (log.includes('✅')) cls = 'log-success';
-                    if (log.includes('❌')) cls = 'log-error';
-                    if (log.includes('⚠️')) cls = 'log-warn';
-                    addLog(log, cls, false);
-                });
-                box.scrollTop = box.scrollHeight;
-            }
-            if (data.status === 'idle') {
-                clearInterval(pollingInterval); pollingInterval = null;
-                const btn = document.getElementById('checkBtn');
-                btn.disabled = false; btn.innerHTML = `🚀 بدء الفحص`;
-            }
-        }
-
-        function addLog(text, className, scroll = true) {
-            const box = document.getElementById('logsBox');
-            const div = document.createElement('div');
-            div.className = `log-line ${className}`; div.innerText = text;
-            box.appendChild(div);
-            if (scroll) box.scrollTop = box.scrollHeight;
-        }
-
-        function downloadTXT() { window.location.href = '/api/download-txt'; }
-        function downloadVCF() { window.location.href = '/api/download-vcf'; }
-    </script>
-</body>
-</html>
-"""
-
-# --- الوظائف الأساسية ---
-
-def generate_numbers_func(country, count):
-    checked_history = load_set(CHECKED_FILE)
-    config = COUNTRIES[country]
-    numbers = []
-    attempts = 0
-    max_attempts = count * 20 
-    
-    while len(numbers) < count and attempts < max_attempts:
-        prefix = random.choice(config["prefixes"])
-        rest_length = config["length"] - len(prefix)
-        rest = "".join(random.choices(string.digits, k=rest_length))
-        num = f"{config['code']}{prefix}{rest}"
-        
-        if num not in checked_history and num not in numbers:
-            numbers.append(num)
-        attempts += 1
-        
-    return numbers
-
-def process_apify(numbers):
-    global current_status, logs, valid_numbers, stats
-    apify_token = get_apify_token()
-    if not apify_token:
-        logs.append("❌ خطأ: لم يتم تعيين APIFY_API_TOKEN.")
-        current_status = "idle"; return
-    
-    logs.append(f"[*] جاري إرسال {len(numbers)} رقم إلى محرك الفحص...")
-    
-    chunk_size = 20
-    chunks = [numbers[i:i + chunk_size] for i in range(0, len(numbers), chunk_size)]
-    
-    for idx, chunk in enumerate(chunks):
-        logs.append(f"[*] جاري فحص الدفعة {idx+1} من {len(chunks)} (عدد: {len(chunk)})...")
-        
-        url = f"https://api.apify.com/v2/acts/apivault_labs\~whatsapp-number-validator/run-sync-get-dataset-items?token={apify_token}"
-        payload = {"phoneNumbers": chunk}
-        
-        try:
-            response = requests.post(url, json=payload, timeout=120)
-            raw_preview = response.text[:500] if response.text else "(empty)"
-            
-            if response.status_code in [200, 201]:
-                try:
-                    data = response.json()
-                except json.JSONDecodeError:
-                    logs.append(f"❌ الدفعة {idx+1}: الرد ليس JSON.")
-                    continue
-                
-                if not data or (isinstance(data, dict) and "error" in data):
-                    logs.append(f"❌ الدفعة {idx+1}: استجابة غير صالحة: {raw_preview}")
-                    continue
-                
-                processed = 0
-                current_chunk_checked = []
-                current_chunk_valid = []
-                
-                for item in data:
-                    if not isinstance(item, dict): continue
-                    
-                    phone = item.get("input") or item.get("e164") or item.get("phone")
-                    has_wa = item.get("whatsapp")
-                    
-                    if "summary" in item and not phone: continue
-                    if phone is None: continue
-                    
-                    processed += 1
-                    stats["total"] += 1
-                    current_chunk_checked.append(phone)
-                    
-                    if has_wa:
-                        logs.append(f"✅ مسجل: {phone}")
-                        valid_numbers.append(phone)
-                        current_chunk_valid.append(phone)
-                        stats["valid"] += 1
-                    else:
-                        logs.append(f"❌ غير مسجل: {phone}")
-                        stats["invalid"] += 1
-                
-                if current_chunk_checked: append_to_file(CHECKED_FILE, current_chunk_checked)
-                if current_chunk_valid: append_to_file(VALID_FILE, current_chunk_valid)
-                    
-                if processed == 0:
-                    logs.append(f"⚠️ الدفعة {idx+1}: لم يتم التعرف على أي حقل.")
-            else:
-                logs.append(f"❌ الدفعة {idx+1} (كود {response.status_code}): {raw_preview}")
-                
-        except Exception as e:
-            logs.append(f"❌ خطأ في الدفعة {idx+1}: {str(e)[:150]}")
-            
-        time.sleep(2)
-        
-    logs.append(f"--- اكتملت العملية. تم العثور على {stats['valid']} رقم مسجل ---")
-    current_status = "idle"
-
-# --- مسارات Flask ---
-
-@app.route('/')
-def index():
-    if not session.get('logged_in'): return redirect(url_for('login'))
-    return render_template_string(
-        DASHBOARD_TEMPLATE, 
-        countries=COUNTRIES,
-        apify_token=load_settings().get("APIFY_TOKEN", "")
-    )
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] == 'As3ad' and request.form['password'] == 'As3ad':
-            session['logged_in'] = True
-            return redirect(url_for('index'))
-        else: error = "بيانات الدخول غير صحيحة."
-    return render_template_string(LOGIN_TEMPLATE, error=error)
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('login'))
-
-@app.route('/api/save-settings', methods=['POST'])
-def save_settings_api():
-    data = request.json
-    save_settings({
-        "APIFY_TOKEN": data.get("apify_token", "")
-    })
-    return {"status": "success"}
-
-@app.route('/api/reset-history', methods=['POST'])
-def reset_history():
-    for f in [CHECKED_FILE, VALID_FILE]:
-        if os.path.exists(f): os.remove(f)
-    return {"status": "success"}
-
-@app.route('/api/generate', methods=['POST'])
-def generate_api():
-    global generated_numbers, logs, stats
-    data = request.json
-    country = data.get('country'); count = int(data.get('count', 10))
-    generated_numbers = generate_numbers_func(country, count)
-    logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}
-    logs.append(f"[*] تم توليد {len(generated_numbers)} رقم جديد لدولة {COUNTRIES[country]['ar']} (تم تخطي الأرقام المفحوصة سابقاً).")
-    return {"count": len(generated_numbers)}
-
-@app.route('/api/check', methods=['POST'])
-def check_api():
-    global current_status, logs, stats, valid_numbers
-    data = request.json
-    specific = data.get('specific', '').strip()
-    if current_status == "running": return {"error": "قيد التشغيل"}, 400
-    logs.clear(); stats = {"total": 0, "valid": 0, "invalid": 0}; current_status = "running"
-    valid_numbers.clear()
-    if specific:
-        numbers = [specific]; logs.append(f"[>] فحص رقم محدد: {specific}")
-    else:
-        numbers = generated_numbers; logs.append(f"[>] فحص {len(numbers)} رقم...")
-    threading.Thread(target=process_apify, args=(numbers,)).start()
-    return {"status": "started"}
-
-@app.route('/api/status')
-def status_api():
-    return {"status": current_status, "logs": logs, "stats": stats}
-
-@app.route('/api/download-txt')
-def download_txt():
-    valid_all = load_set(VALID_FILE)
-    if not valid_all: return "لا توجد أرقام ناجحة.", 404
-    output = "\n".join(valid_all)
-    return Response(output, mimetype="text/plain", headers={"Content-Disposition": "attachment;filename=all_valid_numbers.txt"})
-
-@app.route('/api/download-vcf')
-def download_vcf():
-    valid_all = load_set(VALID_FILE)
-    if not valid_all: return "لا توجد أرقام ناجحة.", 404
-    
-    vcf_content = generate_vcf(valid_all)
-    return Response(
-        vcf_content, 
-        mimetype="text/vcard", 
-        headers={"Content-Disposition": "attachment;filename=whatsapp_contacts.vcf"}
-    )
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+            btn.disabled = true; btn.innerHTML = 
